@@ -75,3 +75,8 @@
    - [ ] すべての公開メンバー（メソッド/コンストラクタ/プロパティ/フィールド/イベント）に `/// <summary>…</summary>` を付与し、引数がある場合は `/// <param name="…">…</param>`、戻り値がある場合は `/// <returns>…</returns>` を記載すること
    - [ ] 例外を送出しうる場合は `/// <exception cref="…">…</exception>` を記載すること
    - [ ] ビルド設定で XML ドキュメント出力（`<GenerateDocumentationFile>true</GenerateDocumentationFile>`）を有効化し、CI では公開 API に対する欠落ドキュメント警告（例：CS1591）が発生しないこと
+## 参考資料リンク
+- 調査ノート（深度付きベクタライズの要点・節番号付き）: [research-depth-vectorization.md](research-depth-vectorization.md)
+- Python実装の調査メモ（セットアップ/CLI/依存）: [research-python-impl.md](research-python-impl.md)
+- Pythonコード構造とコールグラフ（IVYSO）: [research-python-code-structure.md](research-python-code-structure.md)
+- Python→C# ライブラリ対応表: [research-libraries-mapping.md](research-libraries-mapping.md)
