@@ -7,6 +7,7 @@ namespace SvgCreator.Core.Tests.Models;
 public sealed class PathSegmentTests
 {
     [Theory]
+    // 無効な制御点数を指定すると例外となることを確認
     [InlineData(PathSegmentType.Move, 0)]
     [InlineData(PathSegmentType.Move, 2)]
     [InlineData(PathSegmentType.Line, 0)]
@@ -20,6 +21,7 @@ public sealed class PathSegmentTests
     }
 
     [Theory]
+    // 有効な制御点数で初期化できることを確認
     [InlineData(PathSegmentType.Move, 1)]
     [InlineData(PathSegmentType.Line, 1)]
     [InlineData(PathSegmentType.CubicBezier, 3)]
@@ -35,6 +37,7 @@ public sealed class PathSegmentTests
     }
 
     [Fact]
+    // 入力制御点がコピーされることを確認
     public void Constructor_CopiesPoints()
     {
         var points = new[] { new Vector2(1, 2) };

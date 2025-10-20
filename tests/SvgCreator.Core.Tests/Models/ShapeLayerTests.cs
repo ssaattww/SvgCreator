@@ -11,6 +11,7 @@ public sealed class ShapeLayerTests
         ImmutableArray.Create(new Vector2(0, 0), new Vector2(10, 0), new Vector2(0, 10));
 
     [Fact]
+    // レイヤー ID が null または空白の場合に例外となることを確認
     public void Constructor_Throws_WhenIdIsNullOrWhitespace()
     {
         var mask = new RasterMask(1, 1, ImmutableArray.Create(true));
@@ -21,6 +22,7 @@ public sealed class ShapeLayerTests
     }
 
     [Fact]
+    // 境界点数が 3 未満のときに例外となることを確認
     public void Constructor_Throws_WhenBoundaryHasTooFewPoints()
     {
         var mask = new RasterMask(1, 1, ImmutableArray.Create(true));
@@ -31,6 +33,7 @@ public sealed class ShapeLayerTests
     }
 
     [Fact]
+    // 面積が 1 未満のときに例外となることを確認
     public void Constructor_Throws_WhenAreaIsNotPositive()
     {
         var mask = new RasterMask(1, 1, ImmutableArray.Create(true));
@@ -40,6 +43,7 @@ public sealed class ShapeLayerTests
     }
 
     [Fact]
+    // すべてのプロパティに値が設定されることを確認
     public void Constructor_AssignsProperties()
     {
         var mask = new RasterMask(2, 2, ImmutableArray.Create(true, false, true, false));

@@ -6,11 +6,16 @@ using System.Diagnostics;
 namespace SvgCreator.Core.Models;
 
 /// <summary>
-/// Represents an ordered sequence of path segments forming a closed or open contour.
+/// 閉じた輪郭または開いた輪郭を構成するパスセグメント列を表します。
 /// </summary>
 [DebuggerDisplay("Segments = {Segments.Length}")]
 public sealed class Path
 {
+    /// <summary>
+    /// 不変配列から <see cref="Path"/> を初期化します。
+    /// </summary>
+    /// <param name="segments">Move で始まるパスセグメント列。</param>
+    /// <exception cref="ArgumentException">セグメントが空、または先頭が Move ではありません。</exception>
     public Path(ImmutableArray<PathSegment> segments)
     {
         if (segments.IsDefaultOrEmpty)
@@ -22,6 +27,12 @@ public sealed class Path
         Segments = segments;
     }
 
+    /// <summary>
+    /// 列挙可能なセグメントから <see cref="Path"/> を初期化します。
+    /// </summary>
+    /// <param name="segments">Move で始まるパスセグメント列。</param>
+    /// <exception cref="ArgumentNullException"><paramref name="segments"/> が <c>null</c> です。</exception>
+    /// <exception cref="ArgumentException">セグメントが空、または先頭が Move ではありません。</exception>
     public Path(IEnumerable<PathSegment> segments)
     {
         ArgumentNullException.ThrowIfNull(segments);
@@ -36,6 +47,9 @@ public sealed class Path
         Segments = immutable;
     }
 
+    /// <summary>
+    /// パスを構成するセグメント列を取得します。
+    /// </summary>
     public ImmutableArray<PathSegment> Segments { get; }
 
     private static void ValidateSegments(ImmutableArray<PathSegment> segments)

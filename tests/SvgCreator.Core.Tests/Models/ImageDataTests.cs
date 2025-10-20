@@ -6,6 +6,7 @@ namespace SvgCreator.Core.Tests.Models;
 public sealed class ImageDataTests
 {
     [Fact]
+    // 幅が 1 未満の場合に例外となることを確認
     public void Constructor_Throws_WhenWidthIsNotPositive()
     {
         var pixels = new byte[3];
@@ -13,6 +14,7 @@ public sealed class ImageDataTests
     }
 
     [Fact]
+    // 高さが 1 未満の場合に例外となることを確認
     public void Constructor_Throws_WhenHeightIsNotPositive()
     {
         var pixels = new byte[3];
@@ -20,6 +22,7 @@ public sealed class ImageDataTests
     }
 
     [Fact]
+    // ピクセル配列長が期待値と合わないときに例外となることを確認
     public void Constructor_Throws_WhenPixelLengthDoesNotMatchExpected()
     {
         var pixels = new byte[2]; // should be 3 bytes for 1x1 RGB
@@ -27,6 +30,7 @@ public sealed class ImageDataTests
     }
 
     [Fact]
+    // 入力配列がコピーされていることを確認
     public void Constructor_CopiesPixelBuffer()
     {
         var pixels = new byte[] { 1, 2, 3 };

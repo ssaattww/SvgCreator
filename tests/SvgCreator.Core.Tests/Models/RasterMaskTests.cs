@@ -7,6 +7,7 @@ namespace SvgCreator.Core.Tests.Models;
 public sealed class RasterMaskTests
 {
     [Fact]
+    // 幅または高さが 1 未満のときに例外となることを確認
     public void Constructor_Throws_WhenDimensionsInvalid()
     {
         var bits = ImmutableArray.Create(true);
@@ -16,6 +17,7 @@ public sealed class RasterMaskTests
     }
 
     [Fact]
+    // ビット数が幅×高さと一致しないときに例外となることを確認
     public void Constructor_Throws_WhenBitCountDoesNotMatchDimensions()
     {
         var bits = ImmutableArray.Create(true, false, true);
@@ -23,6 +25,7 @@ public sealed class RasterMaskTests
     }
 
     [Fact]
+    // インデクサーが正しいビット値を返すことを確認
     public void Indexer_ReturnsExpectedValue()
     {
         var bits = ImmutableArray.Create(false, true, false, true);
