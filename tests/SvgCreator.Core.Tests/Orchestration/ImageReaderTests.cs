@@ -13,6 +13,7 @@ namespace SvgCreator.Core.Tests.Orchestration;
 public sealed class ImageReaderTests
 {
     [Fact]
+    // 有効な PNG を読み込むと RGB フォーマットの ImageData が得られることを確認
     public async Task ReadAsync_WithValidPng_ReturnsRgbImageData()
     {
         using var temp = new TempDirectory();
@@ -39,6 +40,7 @@ public sealed class ImageReaderTests
     }
 
     [Fact]
+    // 存在しないファイルを読み込むと FileNotFoundException が送出されることを確認
     public async Task ReadAsync_WhenFileDoesNotExist_ThrowsFileNotFound()
     {
         var missingPath = IOPath.Combine(IOPath.GetTempPath(), Guid.NewGuid().ToString("N") + ".png");
@@ -49,6 +51,7 @@ public sealed class ImageReaderTests
     }
 
     [Fact]
+    // 非対応拡張子を読み込むと NotSupportedException が送出されることを確認
     public async Task ReadAsync_WithUnsupportedExtension_ThrowsNotSupported()
     {
         using var temp = new TempDirectory();
