@@ -37,7 +37,7 @@ public sealed class SvgCreationOrchestratorTests
         var imageReader = new FakeImageReader(image);
         var quantizer = new FakeQuantizer(quantization);
         var progressEvents = new List<PipelineStageProgress>();
-        var progress = new Progress<PipelineStageProgress>(progressEvents.Add);
+        var progress = new ImmediateProgress<PipelineStageProgress>(progressEvents.Add);
         var debugSink = new RecordingDebugSink();
         var clock = new DateTimeOffset(2025, 10, 21, 9, 0, 0, TimeSpan.Zero);
 
@@ -192,5 +192,16 @@ public sealed class SvgCreationOrchestratorTests
             return Task.CompletedTask;
         }
     }
-}
 
+    private sealed class ImmediateProgress<T> : IProgress<T>
+    {
+        private readonly Action<T> _callback;
+
+        public ImmediateProgress(Action<T> callback)
+        {
+            _callback = callback;
+        }
+
+        public void Report(T value) => _callback(value);
+    }
+}

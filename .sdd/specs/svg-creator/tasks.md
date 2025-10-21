@@ -15,7 +15,7 @@
 - [x] 2.1 Orchestrator（CLIコア）の処理を実装する
   - design.mdの処理フロー ステップ1-3（CLI引数解析〜進捗表示）に対応する
   - `IDebugSink` を組み込み、ステージ完了時にスナップショットを送出できるようにする
-- [ ] 2.2 ImageReader / Preprocessor を実装する
+- [x] 2.2 ImageReader / Preprocessor を実装する
   - design.mdの処理フロー ステップ2-3（入力読込・色空間変換・前処理）に対応する
 - [ ] 2.3 Quantizer（K-means減色）を実装する
   - design.mdの処理フロー ステップ4（量子化）に対応し、ML.NETベースのK-meansを構成する
