@@ -55,7 +55,7 @@ public sealed class DebugDirectoryLayout
         return Path.Combine(BaseDirectory, StagesDirectoryName, sanitized, "assets");
     }
 
-    private static string SanitizeStageName(string? name)
+    internal static string SanitizeStageName(string? name)
     {
         if (string.IsNullOrWhiteSpace(name))
         {
