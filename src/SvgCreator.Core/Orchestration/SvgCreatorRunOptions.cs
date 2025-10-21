@@ -50,6 +50,11 @@ public sealed class SvgCreatorRunOptions
     public string OutputDirectory { get; }
 
     /// <summary>
+    /// 減色処理で目標とするクラスタ数（K 値）を取得または設定します。<c>null</c> の場合は実装既定値を使用します。
+    /// </summary>
+    public int? QuantizationClusterCount { get; init; }
+
+    /// <summary>
     /// デバッグ出力を有効にするかどうかを取得または設定します。
     /// </summary>
     public bool EnableDebug { get; init; }
@@ -74,4 +79,3 @@ public sealed class SvgCreatorRunOptions
     /// </summary>
     public IReadOnlyDictionary<string, string> CliOptionSnapshot { get; }
 }
-

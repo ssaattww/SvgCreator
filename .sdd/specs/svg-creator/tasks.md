@@ -17,7 +17,7 @@
   - `IDebugSink` を組み込み、ステージ完了時にスナップショットを送出できるようにする
 - [x] 2.2 ImageReader / Preprocessor を実装する
   - design.mdの処理フロー ステップ2-3（入力読込・色空間変換・前処理）に対応する
-- [ ] 2.3 Quantizer（K-means減色）を実装する
+- [x] 2.3 Quantizer（K-means減色）を実装する
   - design.mdの処理フロー ステップ4（量子化）に対応し、ML.NETベースのK-meansを構成する
 - [ ] 2.4 ShapeLayerBuilder（領域抽出）を実装する
   - design.mdの処理フロー ステップ5（連結成分抽出・輪郭生成）に対応する
