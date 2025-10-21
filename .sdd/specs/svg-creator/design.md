@@ -19,8 +19,8 @@
 
 ## 主要コンポーネント
 -### コンポーネント1: Orchestrator（CLI）
-- 責務: パラメータ受け取り、各ステージの実行順制御、進捗表示、ログ出力、部分出力制御。
-- 入力: CLI引数（`--image`, `--out`, `--quality`, `--K`, `--delta`, `--euler-max-iter`, `--a`, `--b`, `--eps`, `--b-eps`, `--b-radius`, `--export-layer`, `--threads`, `--quiet/--verbose` など）。
+- 責務: パラメータ受け取り、各ステージの実行順制御、進捗表示、ログ出力、部分出力制御、デバッグスナップショットのトリガー。
+- 入力: CLI引数（`--image`, `--out`, `--quality`, `--K`, `--delta`, `--euler-max-iter`, `--a`, `--b`, `--eps`, `--b-eps`, `--b-radius`, `--export-layer`, `--threads`, `--quiet/--verbose`, `--debug`, `--debug-dir`, `--debug-stages`, `--debug-keep-temp` など）。
 - 出力: 最終SVG, 中間成果（任意で保存）。
 - 依存関係: System.CommandLine（CLI定義）。
 - 検討した選択肢（不採用）: Spectre.Console.Cli, CommandLineParser。
@@ -86,6 +86,12 @@
 - 出力: レイヤ別SVG。
 - 依存関係: SvgEmitter, BezierFitter。
 
+### コンポーネント11: DebugSink（File / Null）
+- 責務: `--debug` 有効時にステージごとの `DebugSnapshot` を生成し、ファイルへ書き出す。無効時は処理をスキップする。
+- 入力: `DebugSnapshot`, ステージ識別子、CLI オプション（保存先、対象ステージなど）。
+- 出力: JSONファイル（`pipeline.json`, `layers.json`, `metadata.json` 等）、画像ダンプ（任意）。
+- 依存関係: System.Text.Json, System.IO, Logging（保存結果の通知）。
+
 ## データモデル
 ### ImageData
 - `Width`: int – 画像幅
@@ -117,6 +123,19 @@
 - `Segments`: List<PathSegment>
 - `PathSegment`: { `Type`: enum(M,L,C,Q,Z), `Points`: PointF[] }
 
+### DebugSnapshot
+- `Version`: string – スナップショットフォーマットのバージョン（例: "1.0"）
+- `Image`: DebugSnapshotImage – 入力画像のメタ情報とピクセルデータ
+- `Palette`: List<RgbColor> – 量子化で得たパレット
+- `Layers`: List<DebugSnapshotLayer> – 生成済みレイヤーの詳細
+- `CreatedAt`: DateTimeOffset – 書き出し時刻（Serializerが付与）
+- `CliOptions`: Dictionary<string, object> – 実行時の主要 CLI オプション写し
+
+### DebugSnapshotImage / Layer / Mask
+- DebugSnapshotImage: `Width`, `Height`, `Format`, `Pixels`（byte[]）
+- DebugSnapshotLayer: `Id`, `Color`, `Area`, `Mask`, `Boundary`, `Holes`
+- DebugSnapshotMask: `Width`, `Height`, `Bits`（bool[]）
+
 ## 処理フロー
 1. 画像読み込み（ImageReader）→ `ImageData` を得る
 2. 減色（Quantizer, K既定=20）→ 量子化画像・色パレット・初期レイヤ
@@ -127,6 +146,10 @@
 7. Bézier近似・単純化（BezierFitter, `bEps`=1.0, `bRadius`=0.8 目安）
 8. SVG出力（SvgEmitter, viewBox設定, `<g>`に`data-depth`付与）
 9. 部分出力/サイズ制約（ExportFilter/SizeLimiter, レイヤ≤15KBを満たさない場合は再単純化）
+10. デバッグスナップショット（DebugSink, `--debug` 有効時のみ）
+    - ステージ名と `DebugSnapshot` を受け取り、`out/debug/` または `--debug-dir` で指定されたディレクトリへ JSON ファイルを保存
+    - `--debug-stages` 指定時は対象ステージのみ書き出し、`metadata.json` にファイル一覧とバージョン情報を更新
+    - `--debug-keep-temp=false` の場合、成功後に不要な中間ファイルを削除
 
 品質プリセット例（`--quality {fast|balanced|high}`）
 - fast: K=12, eulerMaxIter=40, bEps=2.0
@@ -141,10 +164,13 @@
 - エラスティカ未収束 → 反復上限で打切り、弧長重み増で再試行→直線補間フォールバック
 - レイヤ>15KB → 追加単純化/カーブ分割、なお超過時は警告付き許容範囲を提示
 - 出力書込例外（パス/権限） → 代替パス提案、終了コード≠0
+- デバッグスナップショット書込失敗 → エラー内容をログ出力し、CLI 終了コード≠0（`--debug` は検証用途のため失敗時は中断）
+- スナップショットバージョン不一致 → `InvalidDataException` を発生させ CLI 側で警告表示、`metadata.json` に互換性情報を記録
 
 ## 既存コードとの統合
 - 変更が必要なファイル：
   - `src/SvgCreator.CLI/Program.cs`: CLI定義・ヘルプ・プリセット（新規作成時は該当なし）
+  - `src/SvgCreator.CLI/Options/DebugOptions.cs`（仮）: `--debug` 系オプションのバインディング
   - `src/SvgCreator.Core/*`: 各コンポーネント実装（新規）
   - `.sdd/specs/svg-creator/requirements.md`: オプション説明の整合（必要なら追補）
 - 新規作成ファイル：
@@ -158,6 +184,9 @@
   - `src/SvgCreator.Core/SvgEmitter.cs`: SVG生成
  - `src/SvgCreator.Core/ExportFilter.cs`: 部分出力/サイズ制御
   - `src/SvgCreator.Core/Models/*.cs`: データモデル
+  - `src/SvgCreator.Core/Diagnostics/DebugSnapshot*.cs`: デバッグスナップショットのモデルとシリアライザ
+  - `src/SvgCreator.Core/Diagnostics/DebugSink.cs`: ファイル/Nullシンク実装
+  - `src/SvgCreator.Core/Diagnostics/DebugDirectoryLayout.cs`: ファイル配置ヘルパー（ディレクトリ生成、ファイル名管理）
 
 ---
 設計書完了。内容を確認して、次は `/sdd-tasks` を実行して実装タスクを作成してください。
@@ -193,7 +222,7 @@
 - 15) 近似誤差: 最大法線距離
 - 16) 単純化: Douglas–Peucker＋曲率保持
 - 17) 並列化: Parallel.For/PLINQ
-- 18) 中間成果保存: 既定OFF（--debugでJSON保存ON）
+- 18) 中間成果保存: 既定OFF（`--debug` で JSON 保存 ON、`--debug-stages` で対象絞り込み、`--debug-dir` で保存先変更）
 - 19) 浮動小数精度: 幾何double/画像float
 - 20) 出力形態: 単一SVG＋--export-layerで分割
 
