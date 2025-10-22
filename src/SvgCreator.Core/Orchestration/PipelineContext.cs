@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -8,7 +8,7 @@ using SvgCreator.Core.Models;
 namespace SvgCreator.Core.Orchestration;
 
 /// <summary>
-/// パイプライン内で共有されるステートを保持します。
+/// パイプライン実行中の共有状態を保持します。
 /// </summary>
 public sealed class PipelineContext
 {
@@ -18,22 +18,22 @@ public sealed class PipelineContext
     }
 
     /// <summary>
-    /// 実行時オプションを取得します。
+    /// 実行に利用するオプションを取得します。
     /// </summary>
     public SvgCreatorRunOptions Options { get; }
 
     /// <summary>
-    /// 読み込んだ画像を取得します。
+    /// 入力画像を取得します。
     /// </summary>
     public ImageData? Image { get; private set; }
 
     /// <summary>
-    /// 減色結果を取得します。
+    /// 量子化結果を取得します。
     /// </summary>
     public QuantizationResult? Quantization { get; private set; }
 
     /// <summary>
-    /// 生成されたレイヤー集合を取得します。
+    /// 生成済みのシェイプレイヤーを取得します。
     /// </summary>
     public IReadOnlyList<ShapeLayer> ShapeLayers { get; private set; } = Array.Empty<ShapeLayer>();
 
@@ -54,7 +54,7 @@ public sealed class PipelineContext
 }
 
 /// <summary>
-/// パイプラインステージに提供される依存関係の集合です。
+/// ステージが利用する依存サービスをまとめて提供します。
 /// </summary>
 public sealed class PipelineDependencies
 {
@@ -65,23 +65,23 @@ public sealed class PipelineDependencies
     }
 
     /// <summary>
-    /// 画像読込コンポーネントを取得します。
+    /// 画像読み込みコンポーネントを取得します。
     /// </summary>
     public IImageReader ImageReader { get; }
 
     /// <summary>
-    /// 減色コンポーネントを取得します。
+    /// 量子化コンポーネントを取得します。
     /// </summary>
     public IQuantizer Quantizer { get; }
 }
 
 /// <summary>
-/// パイプライン内のステージを表すインターフェイスです。
+/// パイプラインを構成するステージの共通インターフェースです。
 /// </summary>
 public interface IPipelineStage
 {
     /// <summary>
-    /// ステージ ID。
+    /// ステージ識別子。
     /// </summary>
     string Name { get; }
 
@@ -91,23 +91,23 @@ public interface IPipelineStage
     string DisplayName { get; }
 
     /// <summary>
-    /// デバッグスナップショット出力時に使用するステージ名。不要な場合は <c>null</c>。
+    /// デバッグスナップショット出力時に利用するステージ名。不要な場合は null。
     /// </summary>
     string? DebugStageName { get; }
 
     /// <summary>
-    /// ステージ処理を実行します。
+    /// ステージ処理を非同期で実行します。
     /// </summary>
     Task ExecuteAsync(PipelineContext context, PipelineDependencies dependencies, CancellationToken cancellationToken);
 
     /// <summary>
-    /// デバッグスナップショットを生成します。
+    /// デバッグスナップショットを生成します。不要な場合は null。
     /// </summary>
     DebugSnapshot? CreateDebugSnapshot(PipelineContext context);
 }
 
 /// <summary>
-/// 入力画像を読み込むコンポーネントを表します。
+/// 入力画像を読み込むコンポーネントです。
 /// </summary>
 public interface IImageReader
 {
@@ -115,10 +115,9 @@ public interface IImageReader
 }
 
 /// <summary>
-/// 減色コンポーネントを表します。
+/// 量子化を行うコンポーネントです。
 /// </summary>
 public interface IQuantizer
 {
     Task<QuantizationResult> QuantizeAsync(ImageData image, SvgCreatorRunOptions options, CancellationToken cancellationToken);
 }
-

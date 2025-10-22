@@ -1,4 +1,4 @@
-namespace SvgCreator.Core.Orchestration;
+﻿namespace SvgCreator.Core.Orchestration;
 
 /// <summary>
 /// パイプラインステージの識別子を定義します。

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
@@ -6,17 +6,17 @@ using System.Linq;
 namespace SvgCreator.Core.Orchestration;
 
 /// <summary>
-/// SvgCreator パイプラインの実行に必要なオプションを表します。
+/// SvgCreator パイプラインの実行オプションを表します。
 /// </summary>
 public sealed class SvgCreatorRunOptions
 {
     /// <summary>
-    /// <see cref="SvgCreatorRunOptions"/> を初期化します。
+    /// 新しい <see cref="SvgCreatorRunOptions"/> を初期化します。
     /// </summary>
     /// <param name="imagePath">入力画像のパス。</param>
     /// <param name="outputDirectory">出力ディレクトリ。</param>
-    /// <param name="cliOptionSnapshot">CLI オプションの写し。</param>
-    /// <exception cref="ArgumentException">必須パラメータが空白です。</exception>
+    /// <param name="cliOptionSnapshot">CLI オプションのスナップショット。</param>
+    /// <exception cref="ArgumentException">必須引数が空白の場合に発生します。</exception>
     public SvgCreatorRunOptions(
         string imagePath,
         string outputDirectory,
@@ -40,7 +40,7 @@ public sealed class SvgCreatorRunOptions
     }
 
     /// <summary>
-    /// 入力画像ファイルのパスを取得します。
+    /// 入力画像のパスを取得します。
     /// </summary>
     public string ImagePath { get; }
 
@@ -50,17 +50,17 @@ public sealed class SvgCreatorRunOptions
     public string OutputDirectory { get; }
 
     /// <summary>
-    /// 減色処理で目標とするクラスタ数（K 値）を取得または設定します。<c>null</c> の場合は実装既定値を使用します。
+    /// 量子化で使用するターゲットクラスタ数を取得または設定します。
     /// </summary>
     public int? QuantizationClusterCount { get; init; }
 
     /// <summary>
-    /// デバッグ出力を有効にするかどうかを取得または設定します。
+    /// デバッグモードを有効にするかどうかを取得または設定します。
     /// </summary>
     public bool EnableDebug { get; init; }
 
     /// <summary>
-    /// デバッグ出力先ディレクトリ（相対または絶対）を取得または設定します。
+    /// デバッグ出力先ディレクトリを取得または設定します。
     /// </summary>
     public string? DebugDirectory { get; init; }
 
@@ -70,12 +70,12 @@ public sealed class SvgCreatorRunOptions
     public IReadOnlyCollection<string> DebugStages { get; init; } = Array.Empty<string>();
 
     /// <summary>
-    /// デバッグ処理完了後にテンポラリファイルを保持するかどうかを取得または設定します。
+    /// デバッグ時に一時ファイルを保持するかどうかを取得または設定します。
     /// </summary>
     public bool DebugKeepTemporaryFiles { get; init; } = true;
 
     /// <summary>
-    /// CLI オプションの写しを取得します。
+    /// CLI オプションのスナップショットを取得します。
     /// </summary>
     public IReadOnlyDictionary<string, string> CliOptionSnapshot { get; }
 }

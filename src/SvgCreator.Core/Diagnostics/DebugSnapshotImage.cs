@@ -1,4 +1,4 @@
-using SvgCreator.Core.Models;
+﻿using SvgCreator.Core.Models;
 
 namespace SvgCreator.Core.Diagnostics;
 

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Threading;
@@ -13,7 +13,7 @@ namespace SvgCreator.Core.Tests.Orchestration;
 public sealed class SvgCreationOrchestratorTests
 {
     [Fact]
-    // デバッグ有効時にステージ進捗とスナップショットが出力されることを確認
+    // デバッグを有効にした場合にパイプライン進捗とスナップショットが出力されることを確認する
     public async Task ExecuteAsync_WhenDebugEnabled_EmitsPipelineSnapshotAndReportsProgress()
     {
         // CLI オプションとデバッグ設定を含む実行オプションを準備
@@ -30,7 +30,7 @@ public sealed class SvgCreationOrchestratorTests
             DebugDirectory = "out/debug"
         };
 
-        // ステージから返ってくるダミー画像と量子化結果を構築
+        // テスト用のダミー画像と量子化結果を構築
         var image = new ImageData(1, 1, PixelFormat.Rgb, new byte[] { 32, 64, 96 });
         var quantization = new QuantizationResult(
             image,
@@ -44,7 +44,7 @@ public sealed class SvgCreationOrchestratorTests
         var debugSink = new RecordingDebugSink();
         var clock = new DateTimeOffset(2025, 10, 21, 9, 0, 0, TimeSpan.Zero);
 
-        // パイプラインに2ステージ（画像読込→減色）を登録して実行
+        // 画像読み込みと量子化の 2 ステージを登録して実行
         var orchestrator = new SvgCreationOrchestrator(
             new IPipelineStage[]
             {
@@ -61,7 +61,7 @@ public sealed class SvgCreationOrchestratorTests
         Assert.True(imageReader.WasInvoked);
         Assert.True(quantizer.WasInvoked);
 
-        // すべての進捗イベントがステージ順で報告されたことを検証
+        // すべてのステージで開始・完了イベントが通知されたことを検証
         Assert.Collection(
             progressEvents,
             e =>
@@ -93,7 +93,7 @@ public sealed class SvgCreationOrchestratorTests
                 Assert.Equal(2, e.TotalStages);
             });
 
-        // デバッグスナップショット内容とコンテキストが期待通りであることを検証
+        // 量子化ステージのスナップショットが 1 回だけ記録されていることを確認
         var snapshotCall = Assert.Single(debugSink.SnapshotCalls);
         Assert.Equal(QuantizationStage.DebugStageName, snapshotCall.StageName);
         Assert.Equal(clock, snapshotCall.Context.CreatedAt);
@@ -107,16 +107,14 @@ public sealed class SvgCreationOrchestratorTests
     }
 
     [Fact]
-    // デバッグ無効時にスナップショットが書き出されないことを確認
+    // デバッグを無効にした場合はスナップショットが作成されないことを確認する
     public async Task ExecuteAsync_WhenDebugDisabled_SkipsDebugSinkCalls()
     {
-        // デバッグオプションを含まない最小構成
         var options = new SvgCreatorRunOptions(
             imagePath: "input/sample.png",
             outputDirectory: "out",
             cliOptionSnapshot: new Dictionary<string, string>());
 
-        // テスト用のダミー依存
         var image = new ImageData(1, 1, PixelFormat.Rgb, new byte[] { 1, 2, 3 });
         var quantization = new QuantizationResult(
             image,
@@ -127,7 +125,6 @@ public sealed class SvgCreationOrchestratorTests
         var quantizer = new FakeQuantizer(quantization);
         var debugSink = new RecordingDebugSink();
 
-        // 進捗レポートなしでパイプラインを実行
         var orchestrator = new SvgCreationOrchestrator(
             new IPipelineStage[]
             {

@@ -1,4 +1,5 @@
 # 実装タスクリスト
+[調査結果](C:\Users\taiga\source\repos\SvgCreator\.sdd\specs\svg-creator\research-python-code-structure.md)と、設計を元に実装を行うこと
 
 ## セクション1：データモデル実装
 - [x] 1.1 必要な型定義・データ構造を作成する

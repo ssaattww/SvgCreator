@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -47,8 +47,8 @@ public sealed class SvgCreationOrchestrator
     /// パイプラインを実行します。
     /// </summary>
     /// <param name="options">実行オプション。</param>
-    /// <param name="cancellationToken">キャンセル トークン。</param>
-    /// <returns>生成された成果物。</returns>
+    /// <param name="cancellationToken">キャンセル要求トークン。</param>
+    /// <returns>生成された結果。</returns>
     public async Task<SvgCreationResult> ExecuteAsync(SvgCreatorRunOptions options, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(options);
@@ -101,4 +101,3 @@ public sealed class SvgCreationOrchestrator
         _progress?.Report(new PipelineStageProgress(stage.Name, stage.DisplayName, status, index, total));
     }
 }
-

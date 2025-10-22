@@ -1,4 +1,4 @@
-namespace SvgCreator.Core.Diagnostics;
+﻿namespace SvgCreator.Core.Diagnostics;
 
 /// <summary>
 /// デバッグ用に保存されるラスターマスク情報です。

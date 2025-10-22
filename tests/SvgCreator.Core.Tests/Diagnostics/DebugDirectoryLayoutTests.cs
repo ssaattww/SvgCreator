@@ -1,4 +1,4 @@
-using System.IO;
+﻿using System.IO;
 using SvgCreator.Core.Diagnostics;
 
 namespace SvgCreator.Core.Tests.Diagnostics;
