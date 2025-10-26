@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using OpenCvSharp;
+using SvgCreator.Core.Dependencies;
 using SvgCreator.Core.Models;
 using SvgCreator.Core.Orchestration;
 using IOPath = System.IO.Path;
@@ -53,6 +54,8 @@ public sealed class ImageReader : IImageReader
         }
 
         ValidateExtension(imagePath);
+
+        OpenCvRuntimeBootstrapper.EnsureDependenciesAvailable(_logger);
 
         using var bgr = Cv2.ImRead(imagePath, ImreadModes.Color);
         if (bgr.Empty())

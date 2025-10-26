@@ -21,7 +21,7 @@
   - Windows 11 と Ubuntu 22.04 の両方で動作するよう `OpenCvSharp4.runtime.any` などのランタイムパッケージ選定と依存登録を行い、OS依存箇所を排除する
 - [x] 2.3 Quantizer（K-means減色）を実装する
   - design.mdの処理フロー ステップ4（量子化）に対応し、ML.NETベースのK-meansを構成する
-- [ ] 2.4 OpenCvSharp のクロスプラットフォーム対応を整備する
+- [x] 2.4 OpenCvSharp のクロスプラットフォーム対応を整備する
   - Windows 固有の API やパス依存を排除し、Linux でも同一の処理が動作するよう ImageReader/Preprocessor の実装をリファクタリングする
   - `OpenCvSharp4.runtime.any` もしくは OS 別ランタイムの導入手順をコードコメント/設定に反映し、ビルド定義を更新する
 - [ ] 2.5 ShapeLayerBuilder（領域抽出）を実装する
