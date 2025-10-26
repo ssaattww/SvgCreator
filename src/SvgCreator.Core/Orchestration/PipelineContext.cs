@@ -58,10 +58,14 @@ public sealed class PipelineContext
 /// </summary>
 public sealed class PipelineDependencies
 {
-    public PipelineDependencies(IImageReader imageReader, IQuantizer quantizer)
+    public PipelineDependencies(
+        IImageReader imageReader,
+        IQuantizer quantizer,
+        IShapeLayerBuilder shapeLayerBuilder)
     {
         ImageReader = imageReader ?? throw new ArgumentNullException(nameof(imageReader));
         Quantizer = quantizer ?? throw new ArgumentNullException(nameof(quantizer));
+        ShapeLayerBuilder = shapeLayerBuilder ?? throw new ArgumentNullException(nameof(shapeLayerBuilder));
     }
 
     /// <summary>
@@ -73,6 +77,11 @@ public sealed class PipelineDependencies
     /// 量子化コンポーネントを取得します。
     /// </summary>
     public IQuantizer Quantizer { get; }
+
+    /// <summary>
+    /// シェイプレイヤー抽出コンポーネントを取得します。
+    /// </summary>
+    public IShapeLayerBuilder ShapeLayerBuilder { get; }
 }
 
 /// <summary>
@@ -120,4 +129,12 @@ public interface IImageReader
 public interface IQuantizer
 {
     Task<QuantizationResult> QuantizeAsync(ImageData image, SvgCreatorRunOptions options, CancellationToken cancellationToken);
+}
+
+/// <summary>
+/// 量子化結果からシェイプレイヤーを構築します。
+/// </summary>
+public interface IShapeLayerBuilder
+{
+    Task<IReadOnlyList<ShapeLayer>> BuildLayersAsync(QuantizationResult quantization, CancellationToken cancellationToken);
 }

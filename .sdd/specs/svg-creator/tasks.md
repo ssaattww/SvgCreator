@@ -24,8 +24,12 @@
 - [x] 2.4 OpenCvSharp のクロスプラットフォーム対応を整備する
   - Windows 固有の API やパス依存を排除し、Linux でも同一の処理が動作するよう ImageReader/Preprocessor の実装をリファクタリングする
   - `OpenCvSharp4.runtime.any` もしくは OS 別ランタイムの導入手順をコードコメント/設定に反映し、ビルド定義を更新する
-- [ ] 2.5 ShapeLayerBuilder（領域抽出）を実装する
-  - design.mdの処理フロー ステップ5（連結成分抽出・輪郭生成）に対応する
+- [ ] 2.5 ShapeLayerBuilder（領域抽出）を完成させる
+  - [x] 2.5.1 外周輪郭トレースを実装し、連結成分境界を CCW ポリラインで生成する
+  - [ ] 2.5.2 穴領域（Holes）を検出し `ShapeLayer.Holes` を構築する
+  - [ ] 2.5.3 微小成分の除去ロジック（`noisyThreshold`）を導入する
+  - [ ] 2.5.4 ノイズ層を `NoisyLayer[]` として分類・返却する
+  - [ ] 2.5.5 境界/穴/ノイズケースを網羅する単体テストを追加する
 - [ ] 2.6 DepthOrdering（深度整序）を実装する
   - design.mdの処理フロー ステップ6（隣接グラフ算出・SCC縮約・トポロジカルソート）に対応する
 - [ ] 2.7 OcclusionCompleter（エラスティカ補完）を実装する

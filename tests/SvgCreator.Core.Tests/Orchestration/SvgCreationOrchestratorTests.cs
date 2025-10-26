@@ -7,6 +7,7 @@ using SvgCreator.Core.Diagnostics;
 using SvgCreator.Core.Models;
 using SvgCreator.Core.Orchestration;
 using SvgCreator.Core.Orchestration.Stages;
+using SvgCreator.Core.ShapeLayers;
 
 namespace SvgCreator.Core.Tests.Orchestration;
 
@@ -43,15 +44,17 @@ public sealed class SvgCreationOrchestratorTests
         var progress = new ImmediateProgress<PipelineStageProgress>(progressEvents.Add);
         var debugSink = new RecordingDebugSink();
         var clock = new DateTimeOffset(2025, 10, 21, 9, 0, 0, TimeSpan.Zero);
+        var shapeLayerBuilder = new FakeShapeLayerBuilder(Array.Empty<ShapeLayer>());
 
         // 画像読み込みと量子化の 2 ステージを登録して実行
         var orchestrator = new SvgCreationOrchestrator(
             new IPipelineStage[]
             {
                 new ImageLoadingStage(),
-                new QuantizationStage()
+                new QuantizationStage(),
+                new ShapeLayerExtractionStage()
             },
-            new PipelineDependencies(imageReader, quantizer),
+            new PipelineDependencies(imageReader, quantizer, shapeLayerBuilder),
             debugSink,
             progress,
             () => clock);
@@ -69,28 +72,42 @@ public sealed class SvgCreationOrchestratorTests
                 Assert.Equal(PipelineStageNames.ImageLoading, e.StageName);
                 Assert.Equal(PipelineStageStatus.Started, e.Status);
                 Assert.Equal(1, e.StageIndex);
-                Assert.Equal(2, e.TotalStages);
+                Assert.Equal(3, e.TotalStages);
             },
             e =>
             {
                 Assert.Equal(PipelineStageNames.ImageLoading, e.StageName);
                 Assert.Equal(PipelineStageStatus.Completed, e.Status);
                 Assert.Equal(1, e.StageIndex);
-                Assert.Equal(2, e.TotalStages);
+                Assert.Equal(3, e.TotalStages);
             },
             e =>
             {
                 Assert.Equal(PipelineStageNames.Quantization, e.StageName);
                 Assert.Equal(PipelineStageStatus.Started, e.Status);
                 Assert.Equal(2, e.StageIndex);
-                Assert.Equal(2, e.TotalStages);
+                Assert.Equal(3, e.TotalStages);
             },
             e =>
             {
                 Assert.Equal(PipelineStageNames.Quantization, e.StageName);
                 Assert.Equal(PipelineStageStatus.Completed, e.Status);
                 Assert.Equal(2, e.StageIndex);
-                Assert.Equal(2, e.TotalStages);
+                Assert.Equal(3, e.TotalStages);
+            },
+            e =>
+            {
+                Assert.Equal(PipelineStageNames.ShapeLayerExtraction, e.StageName);
+                Assert.Equal(PipelineStageStatus.Started, e.Status);
+                Assert.Equal(3, e.StageIndex);
+                Assert.Equal(3, e.TotalStages);
+            },
+            e =>
+            {
+                Assert.Equal(PipelineStageNames.ShapeLayerExtraction, e.StageName);
+                Assert.Equal(PipelineStageStatus.Completed, e.Status);
+                Assert.Equal(3, e.StageIndex);
+                Assert.Equal(3, e.TotalStages);
             });
 
         // 量子化ステージのスナップショットが 1 回だけ記録されていることを確認
@@ -124,14 +141,16 @@ public sealed class SvgCreationOrchestratorTests
         var imageReader = new FakeImageReader(image);
         var quantizer = new FakeQuantizer(quantization);
         var debugSink = new RecordingDebugSink();
+        var shapeLayerBuilder = new FakeShapeLayerBuilder(Array.Empty<ShapeLayer>());
 
         var orchestrator = new SvgCreationOrchestrator(
             new IPipelineStage[]
             {
                 new ImageLoadingStage(),
-                new QuantizationStage()
+                new QuantizationStage(),
+                new ShapeLayerExtractionStage()
             },
-            new PipelineDependencies(imageReader, quantizer),
+            new PipelineDependencies(imageReader, quantizer, shapeLayerBuilder),
             debugSink,
             progress: null,
             clock: () => new DateTimeOffset(2025, 10, 21, 9, 30, 0, TimeSpan.Zero));
@@ -140,6 +159,19 @@ public sealed class SvgCreationOrchestratorTests
 
         Assert.Empty(debugSink.SnapshotCalls);
         Assert.False(debugSink.CompleteCalled);
+    }
+
+    private sealed class FakeShapeLayerBuilder : IShapeLayerBuilder
+    {
+        private readonly IReadOnlyList<ShapeLayer> _layers;
+
+        public FakeShapeLayerBuilder(IReadOnlyList<ShapeLayer> layers)
+        {
+            _layers = layers;
+        }
+
+        public Task<IReadOnlyList<ShapeLayer>> BuildLayersAsync(QuantizationResult quantization, CancellationToken cancellationToken)
+            => Task.FromResult(_layers);
     }
 
     private sealed class FakeImageReader : IImageReader
