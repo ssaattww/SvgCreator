@@ -6,10 +6,11 @@
 - 技術統合方針（steering/tech.md 前提）:
   - .NETベースのCLIとして実装（例: .NET 8, C#）。
   - 数値・画像・SVGは下記候補を採用（research-libraries-mapping.md 参照）:
-    - 画像/形態: OpenCvSharp（OpenCV）、描画系: SkiaSharp（任意）
+    - 画像/形態: OpenCvSharp（OpenCV）、描画系: SkiaSharp（任意）。Windows と Ubuntu の双方で動作するように `OpenCvSharp4.runtime.any` または Linux/Windows のランタイムパッケージを併用する。
     - 数値/最適化: Math.NET Numerics（必要に応じて ALGLIB）
     - グラフ: QuikGraph
     - SVG入出力: SVG.NET（必要に応じて SharpVectors / Svg.Skia）
+  - プラットフォーム要件（Windows 11 / Ubuntu 22.04）を満たすため、ファイルパスや依存定義をOS非依存に保ち、追加のネイティブ依存が必要な場合は README に導入手順を明記する。
   - 既存要件（requirements.md）とCLI仕様を一致させ、レイヤ別15KB以内、部分出力（指定レイヤのみ）をサポート。
 
 関連資料
@@ -18,62 +19,62 @@
 - C#ライブラリ候補: research-libraries-mapping.md
 
 ## 主要コンポーネント
--### コンポーネント1: Orchestrator（CLI）
+### コンポーネント1: Orchestrator（CLI）
 - 責務: パラメータ受け取り、各ステージの実行順制御、進捗表示、ログ出力、部分出力制御、デバッグスナップショットのトリガー。
 - 入力: CLI引数（`--image`, `--out`, `--quality`, `--K`, `--delta`, `--euler-max-iter`, `--a`, `--b`, `--eps`, `--b-eps`, `--b-radius`, `--export-layer`, `--threads`, `--quiet/--verbose`, `--debug`, `--debug-dir`, `--debug-stages`, `--debug-keep-temp` など）。
 - 出力: 最終SVG, 中間成果（任意で保存）。
 - 依存関係: System.CommandLine（CLI定義）。
 - 検討した選択肢（不採用）: Spectre.Console.Cli, CommandLineParser。
 
--### コンポーネント2: ImageReader / Preprocessor
+### コンポーネント2: ImageReader / Preprocessor
 - 責務: 入力画像の読込、色空間変換、任意のノイズ除去/減色前のスムージング。
 - 入力: 画像ファイル（PNG/JPEG）。
 - 出力: `ImageData`（幅/高さ/画素配列）。
 - 依存関係: OpenCvSharp。
 - 検討した選択肢（不採用）: SkiaSharp（機能不足箇所は自前実装が増える）。
 
--### コンポーネント3: Quantizer（減色）
+### コンポーネント3: Quantizer（減色）
 - 責務: K-means等で色量子化して領域の一貫性を高める。
 - 入力: `ImageData`, パラメータ `K`。
 - 出力: 量子化後画像、色パレット、初期レイヤ（画素ラベル）。
 - 依存関係: ML.NET（KMeans）。
 - 検討した選択肢（不採用）: 自前実装, Accord.NET。
 
--### コンポーネント4: Segmenter（任意・多相）
+### コンポーネント4: Segmenter（任意・多相）
 - 責務: 実画像向けに量子化後の粗いグルーピング（多相セグメンテーション）。
 - 入力: 量子化結果、`mu`, `maxPhases`, `segMaxIter`。
 - 出力: セグメンテーション結果（フェーズ）。
 - 依存関係: Math.NET Numerics（数値最適化）。
 
--### コンポーネント5: ShapeLayerBuilder
+### コンポーネント5: ShapeLayerBuilder
 - 責務: 連結成分抽出→領域（境界ポリライン/輪郭）を生成、微小領域除去、ノイズ層分離。
 - 入力: 量子化/セグメンテーション結果、`noisyThreshold`。
 - 出力: `ShapeLayer[]`, `NoisyLayer[]`。
 - 依存関係: OpenCvSharp。
 - 検討した選択肢（不採用）: SkiaSharp（形態演算/輪郭で不足）。
 
--### コンポーネント6: DepthOrdering
+### コンポーネント6: DepthOrdering
 - 責務: 隣接レイヤ間の「手前/奥」スコアを算出し、閉路を抑制しつつ全体の深度順を決定。
 - 入力: `ShapeLayer[]`, パラメータ `delta`。
 - 出力: `DepthOrder`（`layerId -> depthIndex`）。
 - 依存関係: 自前DAGユーティリティ（SCC/トポロジカルソート）。
 - 検討した選択肢（不採用）: QuikGraph（MS-PL・依存削減方針）。
 
--### コンポーネント7: OcclusionCompleter（Elastica近似）
+### コンポーネント7: OcclusionCompleter（Elastica近似）
 - 責務: 遮蔽で欠落した輪郭を曲率正則化＋弧長ペナルティで補完（離散エラスティカの近似最適化）。
 - 入力: `ShapeLayer[]`, `DepthOrder`, パラメータ `eulerMaxIter`, `eps`, `a`, `b`, `r`。
 - 出力: 補完済み境界（閉域）。
 - 依存関係: Math.NET Numerics。
 - 検討した選択肢（不採用）: ALGLIB（非MIT/依存最小化）。
 
--### コンポーネント8: BezierFitter
+### コンポーネント8: BezierFitter
 - 責務: 境界をBézier（2次/3次）へ近似し、曲率変化に応じた節点密度で単純化。
 - 入力: 補完済み境界、`bEps`, `bRadius`。
 - 出力: `Path[]`（SVG Path セグメント列）。
 - 依存関係: System.Numerics（SIMD）。
 - 検討した選択肢（不採用）: NetTopologySuite（現状要件では過剰）。
 
--### コンポーネント9: SvgEmitter
+### コンポーネント9: SvgEmitter
 - 責務: 深度順に `<g id="layer-XXX" data-depth="d">` としてレイヤを並べ、スタイル/メタデータを付与してSVG化。
 - 入力: `Path[]`, `DepthOrder`, 画像メタ（幅/高さ/viewBox）。
 - 出力: SVGファイル（単一/レイヤ別）。
