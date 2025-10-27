@@ -170,8 +170,8 @@ public sealed class SvgCreationOrchestratorTests
             _layers = layers;
         }
 
-        public Task<IReadOnlyList<ShapeLayer>> BuildLayersAsync(QuantizationResult quantization, CancellationToken cancellationToken)
-            => Task.FromResult(_layers);
+        public Task<ShapeLayerExtractionResult> BuildLayersAsync(QuantizationResult quantization, CancellationToken cancellationToken)
+            => Task.FromResult(new ShapeLayerExtractionResult(_layers, Array.Empty<NoisyLayer>()));
     }
 
     private sealed class FakeImageReader : IImageReader

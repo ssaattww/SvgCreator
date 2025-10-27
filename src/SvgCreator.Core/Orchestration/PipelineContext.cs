@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using SvgCreator.Core.Diagnostics;
 using SvgCreator.Core.Models;
+using SvgCreator.Core.ShapeLayers;
 
 namespace SvgCreator.Core.Orchestration;
 
@@ -37,6 +38,11 @@ public sealed class PipelineContext
     /// </summary>
     public IReadOnlyList<ShapeLayer> ShapeLayers { get; private set; } = Array.Empty<ShapeLayer>();
 
+    /// <summary>
+    /// 微小成分として除外されたノイズレイヤーを取得します。
+    /// </summary>
+    public IReadOnlyList<NoisyLayer> NoisyLayers { get; private set; } = Array.Empty<NoisyLayer>();
+
     public void SetImage(ImageData image)
     {
         Image = image ?? throw new ArgumentNullException(nameof(image));
@@ -47,9 +53,15 @@ public sealed class PipelineContext
         Quantization = quantization ?? throw new ArgumentNullException(nameof(quantization));
     }
 
-    public void SetShapeLayers(IReadOnlyList<ShapeLayer> layers)
+    public void SetShapeLayerExtractionResult(ShapeLayerExtractionResult result)
     {
-        ShapeLayers = layers ?? throw new ArgumentNullException(nameof(layers));
+        if (result is null)
+        {
+            throw new ArgumentNullException(nameof(result));
+        }
+
+        ShapeLayers = result.ShapeLayers ?? throw new ArgumentException("ShapeLayers cannot be null.", nameof(result));
+        NoisyLayers = result.NoisyLayers ?? throw new ArgumentException("NoisyLayers cannot be null.", nameof(result));
     }
 }
 
@@ -136,5 +148,5 @@ public interface IQuantizer
 /// </summary>
 public interface IShapeLayerBuilder
 {
-    Task<IReadOnlyList<ShapeLayer>> BuildLayersAsync(QuantizationResult quantization, CancellationToken cancellationToken);
+    Task<ShapeLayerExtractionResult> BuildLayersAsync(QuantizationResult quantization, CancellationToken cancellationToken);
 }

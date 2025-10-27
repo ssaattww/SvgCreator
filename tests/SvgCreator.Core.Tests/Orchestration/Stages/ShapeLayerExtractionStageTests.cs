@@ -44,20 +44,21 @@ public sealed class ShapeLayerExtractionStageTests
         await stage.ExecuteAsync(context, dependencies, CancellationToken.None);
 
         Assert.Same(layers, context.ShapeLayers);
+        Assert.Empty(context.NoisyLayers);
     }
 
-    private sealed class FakeShapeLayerBuilder : IShapeLayerBuilder
-    {
-        private readonly IReadOnlyList<ShapeLayer> _layers;
-
-        public FakeShapeLayerBuilder(IReadOnlyList<ShapeLayer> layers)
+        private sealed class FakeShapeLayerBuilder : IShapeLayerBuilder
         {
-            _layers = layers;
-        }
+            private readonly IReadOnlyList<ShapeLayer> _layers;
 
-        public Task<IReadOnlyList<ShapeLayer>> BuildLayersAsync(QuantizationResult quantization, CancellationToken cancellationToken)
-            => Task.FromResult(_layers);
-    }
+            public FakeShapeLayerBuilder(IReadOnlyList<ShapeLayer> layers)
+            {
+                _layers = layers;
+            }
+
+            public Task<ShapeLayerExtractionResult> BuildLayersAsync(QuantizationResult quantization, CancellationToken cancellationToken)
+                => Task.FromResult(new ShapeLayerExtractionResult(_layers, Array.Empty<NoisyLayer>()));
+        }
 
     private sealed class DummyImageReader : IImageReader
     {

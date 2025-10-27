@@ -37,11 +37,11 @@ public sealed class ShapeLayerExtractionStage : IPipelineStage
             throw new InvalidOperationException("Quantization result is required before extracting shape layers.");
         }
 
-        var layers = await dependencies.ShapeLayerBuilder
+        var extractionResult = await dependencies.ShapeLayerBuilder
             .BuildLayersAsync(context.Quantization, cancellationToken)
             .ConfigureAwait(false);
 
-        context.SetShapeLayers(layers);
+        context.SetShapeLayerExtractionResult(extractionResult);
     }
 
     /// <inheritdoc />

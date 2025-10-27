@@ -15,8 +15,20 @@ namespace SvgCreator.Core.ShapeLayers;
 /// </summary>
 public sealed class ShapeLayerBuilder : IShapeLayerBuilder
 {
+    private readonly ShapeLayerBuilderOptions _options;
+
+    /// <summary>
+    /// 新しい <see cref="ShapeLayerBuilder"/> を初期化します。
+    /// </summary>
+    /// <param name="options">抽出時のオプション。</param>
+    public ShapeLayerBuilder(ShapeLayerBuilderOptions? options = null)
+    {
+        _options = options ?? ShapeLayerBuilderOptions.Default;
+        _options.Validate();
+    }
+
     /// <inheritdoc />
-    public Task<IReadOnlyList<ShapeLayer>> BuildLayersAsync(QuantizationResult quantization, CancellationToken cancellationToken)
+    public Task<ShapeLayerExtractionResult> BuildLayersAsync(QuantizationResult quantization, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(quantization);
 
@@ -27,12 +39,13 @@ public sealed class ShapeLayerBuilder : IShapeLayerBuilder
 
         var totalPixels = labels.Length;
         var visited = new bool[totalPixels];
-        var components = new List<ShapeLayer>();
+        var shapeLayers = new List<ShapeLayer>();
+        var noisyLayers = new List<NoisyLayer>();
 
-        // BFS で量子化ラベルごとに連結成分を抽出するためのワークスペース。
         var queue = new Queue<int>();
-        var tempPixels = new List<int>();
-        var id = 1;
+        var componentPixels = new List<int>();
+        var shapeId = 1;
+        var noiseId = 1;
 
         for (var index = 0; index < totalPixels; index++)
         {
@@ -43,88 +56,113 @@ public sealed class ShapeLayerBuilder : IShapeLayerBuilder
                 continue;
             }
 
-            tempPixels.Clear();
+            componentPixels.Clear();
             queue.Clear();
 
             var label = labels[index];
             queue.Enqueue(index);
             visited[index] = true;
 
-            var minX = int.MaxValue;
-            var minY = int.MaxValue;
-            var maxX = int.MinValue;
-            var maxY = int.MinValue;
-
             while (queue.Count > 0)
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
                 var current = queue.Dequeue();
-                tempPixels.Add(current);
+                componentPixels.Add(current);
 
                 var x = current % width;
                 var y = current / width;
 
-                if (x < minX) minX = x;
-                if (y < minY) minY = y;
-                if (x > maxX) maxX = x;
-                if (y > maxY) maxY = y;
-
-                EnqueueIfMatches(x - 1, y);
-                EnqueueIfMatches(x + 1, y);
-                EnqueueIfMatches(x, y - 1);
-                EnqueueIfMatches(x, y + 1);
+                EnqueueIfMatches(x - 1, y, label);
+                EnqueueIfMatches(x + 1, y, label);
+                EnqueueIfMatches(x, y - 1, label);
+                EnqueueIfMatches(x, y + 1, label);
             }
 
-            if (tempPixels.Count == 0)
+            if (componentPixels.Count == 0)
             {
                 continue;
             }
 
-            // 連結成分の画素を boolean マスクに反映する。
             var maskBits = new bool[totalPixels];
-            foreach (var pixelIndex in tempPixels)
+            foreach (var pixelIndex in componentPixels)
             {
                 maskBits[pixelIndex] = true;
             }
 
             var mask = new RasterMask(width, height, ImmutableArray.CreateRange(maskBits));
+            var contours = ExtractContours(componentPixels, width, height);
+            var boundary = contours.Boundary;
+            var perimeter = ComputePerimeter(boundary);
 
-            // 画素集合から境界輪郭（CCW）を抽出する。
-            var boundary = TraceBoundary(tempPixels, width, height);
-
+            var area = componentPixels.Count;
             var color = palette[label];
-            var shapeLayer = new ShapeLayer(
-                id: $"layer-{id:0000}",
-                color: color,
-                mask: mask,
-                boundary: boundary,
-                holes: ImmutableArray<IImmutableList<Vector2>>.Empty,
-                area: tempPixels.Count);
 
-            components.Add(shapeLayer);
-            id++;
-
-            void EnqueueIfMatches(int nx, int ny)
+            if (IsNoisy(area, perimeter))
             {
-                if (nx < 0 || ny < 0 || nx >= width || ny >= height)
-                {
-                    return;
-                }
+                var noisyLayer = new NoisyLayer(
+                    id: $"noise-{noiseId:0000}",
+                    color: color,
+                    mask: mask,
+                    boundary: boundary,
+                    area: area);
 
-                var neighborIndex = ny * width + nx;
-                if (!visited[neighborIndex] && labels[neighborIndex] == label)
-                {
-                    visited[neighborIndex] = true;
-                    queue.Enqueue(neighborIndex);
-                }
+                noisyLayers.Add(noisyLayer);
+                noiseId++;
+            }
+            else
+            {
+                var holes = contours.Holes
+                    .Select(h => (IImmutableList<Vector2>)h)
+                    .ToImmutableArray();
+
+                var shapeLayer = new ShapeLayer(
+                    id: $"layer-{shapeId:0000}",
+                    color: color,
+                    mask: mask,
+                    boundary: boundary,
+                    holes: holes,
+                    area: area);
+
+                shapeLayers.Add(shapeLayer);
+                shapeId++;
             }
         }
 
-        return Task.FromResult<IReadOnlyList<ShapeLayer>>(components.ToArray());
+        return Task.FromResult(new ShapeLayerExtractionResult(shapeLayers.ToArray(), noisyLayers.ToArray()));
+
+        void EnqueueIfMatches(int nx, int ny, int targetLabel)
+        {
+            if ((uint)nx >= (uint)width || (uint)ny >= (uint)height)
+            {
+                return;
+            }
+
+            var neighborIndex = ny * width + nx;
+            if (!visited[neighborIndex] && labels[neighborIndex] == targetLabel)
+            {
+                visited[neighborIndex] = true;
+                queue.Enqueue(neighborIndex);
+            }
+        }
     }
 
-    private static ImmutableArray<Vector2> TraceBoundary(IReadOnlyList<int> componentPixels, int width, int height)
+    private bool IsNoisy(int area, float perimeter)
+    {
+        if (_options.NoisyComponentMinimumPixelCount > 0 && area < _options.NoisyComponentMinimumPixelCount)
+        {
+            return true;
+        }
+
+        if (_options.NoisyComponentMinimumPerimeter > 0 && perimeter < _options.NoisyComponentMinimumPerimeter)
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    private static ContourSet ExtractContours(IReadOnlyList<int> componentPixels, int width, int height)
     {
         if (componentPixels.Count == 0)
         {
@@ -132,7 +170,8 @@ public sealed class ShapeLayerBuilder : IShapeLayerBuilder
         }
 
         var pixelSet = new HashSet<int>(componentPixels);
-        var edges = new Dictionary<(int X, int Y), List<DirectedEdge>>();
+        var edgesByStart = new Dictionary<(int X, int Y), List<DirectedEdge>>();
+        var allEdges = new List<DirectedEdge>();
 
         foreach (var pixelIndex in componentPixels)
         {
@@ -141,92 +180,84 @@ public sealed class ShapeLayerBuilder : IShapeLayerBuilder
 
             if (!HasPixel(px, py - 1))
             {
-                AddEdge(edges, (px, py), (px + 1, py));
+                AddEdge(edgesByStart, allEdges, (px, py), (px + 1, py));
             }
 
             if (!HasPixel(px + 1, py))
             {
-                AddEdge(edges, (px + 1, py), (px + 1, py + 1));
+                AddEdge(edgesByStart, allEdges, (px + 1, py), (px + 1, py + 1));
             }
 
             if (!HasPixel(px, py + 1))
             {
-                AddEdge(edges, (px + 1, py + 1), (px, py + 1));
+                AddEdge(edgesByStart, allEdges, (px + 1, py + 1), (px, py + 1));
             }
 
             if (!HasPixel(px - 1, py))
             {
-                AddEdge(edges, (px, py + 1), (px, py));
+                AddEdge(edgesByStart, allEdges, (px, py + 1), (px, py));
             }
         }
 
-        if (edges.Count == 0)
+        if (allEdges.Count == 0)
         {
             throw new InvalidOperationException("Component boundary could not be constructed.");
         }
 
-        var start = edges.Keys
-            .OrderBy(v => v.Y)
-            .ThenBy(v => v.X)
-            .First();
+        var orderedEdges = allEdges
+            .OrderBy(edge => edge.From.Y)
+            .ThenBy(edge => edge.From.X)
+            .ThenBy(edge => edge.Direction)
+            .ToArray();
 
-        var totalEdges = edges.Values.Sum(list => list.Count);
-        if (totalEdges == 0)
+        var visited = new HashSet<DirectedEdge>();
+        List<Vector2>? outerBoundary = null;
+        float outerArea = 0;
+        var holes = new List<ImmutableArray<Vector2>>();
+
+        foreach (var startEdge in orderedEdges)
         {
-            throw new InvalidOperationException("Component boundary is empty.");
-        }
-
-        var boundary = new List<Vector2>(capacity: Math.Max(4, totalEdges));
-        var visited = new HashSet<VisitedEdge>();
-
-        boundary.Add(new Vector2(start.X, start.Y));
-
-        if (!TrySelectNextEdge(edges, visited, start, previousDirection: null, isFirstStep: true, out var current, out var currentDirection))
-        {
-            throw new InvalidOperationException("Failed to locate initial boundary edge.");
-        }
-
-        if (current != start)
-        {
-            boundary.Add(new Vector2(current.X, current.Y));
-        }
-
-        var steps = 1;
-
-        while (current != start)
-        {
-            if (steps > totalEdges)
+            if (!visited.Add(startEdge))
             {
-                throw new InvalidOperationException("Boundary tracing did not close after visiting all edges.");
+                continue;
             }
 
-            if (!TrySelectNextEdge(edges, visited, current, currentDirection, isFirstStep: false, out var next, out var nextDirection))
+            var loop = TraceLoop(startEdge, edgesByStart, visited);
+            RemoveCollinearVertices(loop);
+
+            if (loop.Count < 3)
             {
-                throw new InvalidOperationException("Failed to advance boundary tracing.");
+                throw new InvalidOperationException("Boundary loop must contain at least three vertices.");
             }
 
-            current = next;
-            currentDirection = nextDirection;
-            if (current != start)
-            {
-                boundary.Add(new Vector2(current.X, current.Y));
-            }
+            var signedArea = ComputeSignedArea(loop);
 
-            steps++;
+            if (signedArea > 0)
+            {
+                if (outerBoundary is null || signedArea > outerArea)
+                {
+                    outerBoundary = loop;
+                    outerArea = signedArea;
+                }
+            }
+            else
+            {
+                loop.Reverse();
+                holes.Add(ImmutableArray.CreateRange(loop));
+            }
         }
 
-        RemoveCollinearVertices(boundary);
-
-        if (boundary.Count < 3)
+        if (outerBoundary is null)
         {
-            throw new InvalidOperationException("Boundary must include at least three vertices.");
+            throw new InvalidOperationException("No outer boundary detected for component.");
         }
 
-        return ImmutableArray.CreateRange(boundary);
+        var boundary = ImmutableArray.CreateRange(outerBoundary);
+        return new ContourSet(boundary, holes.ToImmutableArray());
 
         bool HasPixel(int x, int y)
         {
-            if (x < 0 || y < 0 || x >= width || y >= height)
+            if ((uint)x >= (uint)width || (uint)y >= (uint)height)
             {
                 return false;
             }
@@ -235,67 +266,120 @@ public sealed class ShapeLayerBuilder : IShapeLayerBuilder
         }
     }
 
-    private static void AddEdge(Dictionary<(int X, int Y), List<DirectedEdge>> edges, (int X, int Y) from, (int X, int Y) to)
+    private static List<Vector2> TraceLoop(
+        DirectedEdge startEdge,
+        IReadOnlyDictionary<(int X, int Y), List<DirectedEdge>> edgesByStart,
+        HashSet<DirectedEdge> visited)
     {
-        var direction = GetDirection(from, to);
-        if (!edges.TryGetValue(from, out var list))
+        var loop = new List<Vector2>();
+        var startVertex = startEdge.From;
+        var currentVertex = startEdge.To;
+        var previousDirection = startEdge.Direction;
+
+        loop.Add(new Vector2(startVertex.X, startVertex.Y));
+        if (currentVertex != startVertex)
         {
-            list = new List<DirectedEdge>();
-            edges[from] = list;
+            loop.Add(new Vector2(currentVertex.X, currentVertex.Y));
         }
 
-        list.Add(new DirectedEdge(from, to, direction));
-        edges.TryAdd(to, new List<DirectedEdge>());
+        while (!currentVertex.Equals(startVertex))
+        {
+            var nextEdge = SelectNextEdge(currentVertex, previousDirection, edgesByStart, visited);
+            visited.Add(nextEdge);
+
+            currentVertex = nextEdge.To;
+            if (!currentVertex.Equals(startVertex))
+            {
+                loop.Add(new Vector2(currentVertex.X, currentVertex.Y));
+            }
+
+            previousDirection = nextEdge.Direction;
+        }
+
+        return loop;
     }
 
-    private static bool TrySelectNextEdge(
-        IReadOnlyDictionary<(int X, int Y), List<DirectedEdge>> edges,
-        HashSet<VisitedEdge> visited,
+    private static DirectedEdge SelectNextEdge(
         (int X, int Y) current,
-        Direction? previousDirection,
-        bool isFirstStep,
-        out (int X, int Y) next,
-        out Direction direction)
+        Direction previousDirection,
+        IReadOnlyDictionary<(int X, int Y), List<DirectedEdge>> edgesByStart,
+        HashSet<DirectedEdge> visited)
     {
-        next = default;
-        direction = default;
-
-        if (!edges.TryGetValue(current, out var outgoing) || outgoing.Count == 0)
+        if (!edgesByStart.TryGetValue(current, out var outgoing) || outgoing.Count == 0)
         {
-            return false;
+            throw new InvalidOperationException("Boundary traversal encountered a dangling vertex.");
         }
 
-        ReadOnlySpan<Direction> preference = isFirstStep
-            ? stackalloc Direction[] { Direction.East, Direction.South, Direction.West, Direction.North }
-            : stackalloc Direction[]
-            {
-                TurnLeft(previousDirection!.Value),
-                previousDirection.Value,
-                TurnRight(previousDirection.Value),
-                TurnBack(previousDirection.Value)
-            };
+        ReadOnlySpan<Direction> preference = stackalloc Direction[]
+        {
+            TurnLeft(previousDirection),
+            previousDirection,
+            TurnRight(previousDirection),
+            TurnBack(previousDirection)
+        };
 
         foreach (var candidate in preference)
         {
             foreach (var edge in outgoing)
             {
-                if (edge.Direction != candidate)
+                if (edge.Direction != candidate || visited.Contains(edge))
                 {
                     continue;
                 }
 
-                if (!visited.Add(new VisitedEdge(current, candidate)))
-                {
-                    continue;
-                }
-
-                next = edge.To;
-                direction = edge.Direction;
-                return true;
+                return edge;
             }
         }
 
-        return false;
+        throw new InvalidOperationException("Failed to locate next boundary edge.");
+    }
+
+    private static void AddEdge(
+        Dictionary<(int X, int Y), List<DirectedEdge>> edgesByStart,
+        List<DirectedEdge> allEdges,
+        (int X, int Y) from,
+        (int X, int Y) to)
+    {
+        var direction = GetDirection(from, to);
+        var edge = new DirectedEdge(from, to, direction);
+
+        if (!edgesByStart.TryGetValue(from, out var list))
+        {
+            list = new List<DirectedEdge>();
+            edgesByStart[from] = list;
+        }
+
+        list.Add(edge);
+        edgesByStart.TryAdd(to, new List<DirectedEdge>());
+        allEdges.Add(edge);
+    }
+
+    private static float ComputePerimeter(ImmutableArray<Vector2> boundary)
+    {
+        var perimeter = 0f;
+
+        for (var i = 0; i < boundary.Length; i++)
+        {
+            var current = boundary[i];
+            var next = boundary[(i + 1) % boundary.Length];
+            perimeter += Vector2.Distance(current, next);
+        }
+
+        return perimeter;
+    }
+
+    private static float ComputeSignedArea(IReadOnlyList<Vector2> polygon)
+    {
+        var area = 0f;
+
+        for (var i = 0; i < polygon.Count; i++)
+        {
+            var current = polygon[i];
+            var next = polygon[(i + 1) % polygon.Count];
+            area += (current.X * next.Y) - (next.X * current.Y);
+        }
+
+        return area * 0.5f;
     }
 
     private static Direction GetDirection((int X, int Y) from, (int X, int Y) to)
@@ -361,7 +445,7 @@ public sealed class ShapeLayerBuilder : IShapeLayerBuilder
 
     private readonly record struct DirectedEdge((int X, int Y) From, (int X, int Y) To, Direction Direction);
 
-    private readonly record struct VisitedEdge((int X, int Y) From, Direction Direction);
+    private readonly record struct ContourSet(ImmutableArray<Vector2> Boundary, ImmutableArray<ImmutableArray<Vector2>> Holes);
 
     private enum Direction
     {
