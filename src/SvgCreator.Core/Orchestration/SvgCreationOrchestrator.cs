@@ -53,58 +53,107 @@ public sealed class SvgCreationOrchestrator
     {
         ArgumentNullException.ThrowIfNull(options);
 
-        var context = new PipelineContext(options);
-        var stageCount = _stages.Count;
-        var debugContext = new DebugExecutionContext(_clock(), options.CliOptionSnapshot);
-        var debugEnabled = options.EnableDebug;
-
-        for (var index = 0; index < stageCount; index++)
+        try
         {
-            var stage = _stages[index];
-            var stageNumber = index + 1;
+            var context = new PipelineContext(options);
+            var stageCount = _stages.Count;
+            var debugContext = new DebugExecutionContext(_clock(), options.CliOptionSnapshot);
+            var debugEnabled = options.EnableDebug;
 
-            ReportProgress(stage, PipelineStageStatus.Started, stageNumber, stageCount);
-            await stage.ExecuteAsync(context, _dependencies, cancellationToken).ConfigureAwait(false);
-            ReportProgress(stage, PipelineStageStatus.Completed, stageNumber, stageCount);
-
-            if (debugEnabled && stage.DebugStageName is not null)
+            for (var index = 0; index < stageCount; index++)
             {
-                var snapshot = stage.CreateDebugSnapshot(context);
-                if (snapshot is not null)
+                var stage = _stages[index];
+                var stageNumber = index + 1;
+
+                ReportProgress(stage, PipelineStageStatus.Started, stageNumber, stageCount);
+
+                try
                 {
-                    await _debugSink.WriteSnapshotAsync(stage.DebugStageName, snapshot, debugContext, cancellationToken)
-                        .ConfigureAwait(false);
+                    await stage.ExecuteAsync(context, _dependencies, cancellationToken).ConfigureAwait(false);
+                }
+                catch (Exception stageError) when (!IsCancellation(stageError))
+                {
+                    throw SvgCreatorErrorTranslator.Translate(stageError, stage.Name);
+                }
+
+                ReportProgress(stage, PipelineStageStatus.Completed, stageNumber, stageCount);
+
+                if (debugEnabled && stage.DebugStageName is not null)
+                {
+                    var snapshot = stage.CreateDebugSnapshot(context);
+                    if (snapshot is not null)
+                    {
+                        try
+                        {
+                            await _debugSink.WriteSnapshotAsync(stage.DebugStageName, snapshot, debugContext, cancellationToken)
+                                .ConfigureAwait(false);
+                        }
+                        catch (Exception debugError) when (!IsCancellation(debugError))
+                        {
+                            throw SvgCreatorErrorTranslator.Translate(debugError, stage.DebugStageName, isDebugOperation: true);
+                        }
+                    }
                 }
             }
-        }
 
-        if (debugEnabled)
+            if (debugEnabled)
+            {
+                try
+                {
+                    await _debugSink.CompleteAsync(debugContext, cancellationToken).ConfigureAwait(false);
+                }
+                catch (Exception debugError) when (!IsCancellation(debugError))
+                {
+                    throw SvgCreatorErrorTranslator.Translate(debugError, "debug-complete", isDebugOperation: true);
+                }
+            }
+
+            if (context.Image is null)
+            {
+                throw SvgCreatorException.FromCode(
+                    SvgCreatorErrorCode.UnexpectedPipelineFailure,
+                    "The pipeline did not produce an image.");
+            }
+
+            if (context.Quantization is null)
+            {
+                throw SvgCreatorException.FromCode(
+                    SvgCreatorErrorCode.UnexpectedPipelineFailure,
+                    "The pipeline did not produce a quantization result.");
+            }
+
+            if (context.DepthOrder is null)
+            {
+                throw SvgCreatorException.FromCode(
+                    SvgCreatorErrorCode.UnexpectedPipelineFailure,
+                    "The pipeline did not produce a depth order.");
+            }
+
+            if (context.CompletedLayers.Count == 0)
+            {
+                throw SvgCreatorException.FromCode(
+                    SvgCreatorErrorCode.UnexpectedPipelineFailure,
+                    "The pipeline did not produce completed shape layers.");
+            }
+
+            return new SvgCreationResult(context.Image, context.Quantization, context.DepthOrder);
+        }
+        catch (OperationCanceledException)
         {
-            await _debugSink.CompleteAsync(debugContext, cancellationToken).ConfigureAwait(false);
+            throw;
         }
-
-        if (context.Image is null)
+        catch (SvgCreatorException)
         {
-            throw new InvalidOperationException("The pipeline did not produce an image.");
+            throw;
         }
-
-        if (context.Quantization is null)
+        catch (Exception ex)
         {
-            throw new InvalidOperationException("The pipeline did not produce a quantization result.");
+            throw SvgCreatorErrorTranslator.Translate(ex, "pipeline");
         }
-
-        if (context.DepthOrder is null)
-        {
-            throw new InvalidOperationException("The pipeline did not produce a depth order.");
-        }
-
-        if (context.CompletedLayers.Count == 0)
-        {
-            throw new InvalidOperationException("The pipeline did not produce completed shape layers.");
-        }
-
-        return new SvgCreationResult(context.Image, context.Quantization, context.DepthOrder);
     }
+
+    private static bool IsCancellation(Exception exception)
+        => exception is OperationCanceledException or TaskCanceledException;
 
     private void ReportProgress(IPipelineStage stage, PipelineStageStatus status, int index, int total)
     {

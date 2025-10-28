@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Numerics;
@@ -217,6 +218,74 @@ public sealed class SvgCreationOrchestratorTests
         Assert.True(occlusionCompleter.WasInvoked);
     }
 
+    [Fact]
+    public async Task ExecuteAsync_WhenImageReaderThrowsFileNotFound_ThrowsSvgCreatorException()
+    {
+        var options = new SvgCreatorRunOptions(
+            imagePath: "missing.png",
+            outputDirectory: "out",
+            cliOptionSnapshot: new Dictionary<string, string>());
+
+        var imageReader = new ThrowingImageReader(new FileNotFoundException("missing.png"));
+        var quantizer = new PassthroughQuantizer();
+        var shapeLayerBuilder = new PassthroughShapeLayerBuilder();
+        var depthOrdering = new PassthroughDepthOrderingService();
+        var occlusionCompleter = new PassthroughOcclusionCompleter();
+
+        var orchestrator = new SvgCreationOrchestrator(
+            new IPipelineStage[]
+            {
+                new ImageLoadingStage(),
+                new QuantizationStage()
+            },
+            new PipelineDependencies(imageReader, quantizer, shapeLayerBuilder, depthOrdering, occlusionCompleter),
+            new NullDebugSink());
+
+        var exception = await Assert.ThrowsAsync<SvgCreatorException>(() => orchestrator.ExecuteAsync(options, CancellationToken.None));
+
+        Assert.Equal(SvgCreatorErrorCode.InputFileNotFound, exception.ErrorCode);
+        Assert.Equal(SvgCreatorErrorCategory.Input, exception.Category);
+        Assert.Contains("missing.png", exception.Message);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WhenDebugSinkFails_ThrowsSvgCreatorException()
+    {
+        var options = new SvgCreatorRunOptions(
+            imagePath: "input/sample.png",
+            outputDirectory: "out",
+            cliOptionSnapshot: new Dictionary<string, string>())
+        {
+            EnableDebug = true
+        };
+
+        var image = new ImageData(1, 1, PixelFormat.Rgb, new byte[] { 0, 0, 0 });
+        var quantization = new QuantizationResult(
+            image,
+            ImmutableArray.Create(new RgbColor(0, 0, 0)),
+            ImmutableArray.Create(0));
+        var layer = CreateShapeLayer("layer-0001");
+        var depthOrder = new DepthOrder(new Dictionary<string, int> { [layer.Id] = 0 });
+
+        var stage = new DebugSnapshotStage(image, quantization, layer, depthOrder);
+
+        var orchestrator = new SvgCreationOrchestrator(
+            new IPipelineStage[] { stage },
+            new PipelineDependencies(
+                new PassthroughImageReader(image),
+                new PassthroughQuantizer(quantization),
+                new PassthroughShapeLayerBuilder(layer),
+                new PassthroughDepthOrderingService(depthOrder),
+                new PassthroughOcclusionCompleter(layer)),
+            new ThrowingDebugSink(new IOException("debug directory locked")));
+
+        var exception = await Assert.ThrowsAsync<SvgCreatorException>(() => orchestrator.ExecuteAsync(options, CancellationToken.None));
+
+        Assert.Equal(SvgCreatorErrorCode.DebugWriteFailed, exception.ErrorCode);
+        Assert.Equal(SvgCreatorErrorCategory.Debug, exception.Category);
+        Assert.Contains("debug directory locked", exception.Message);
+    }
+
     private static ShapeLayer CreateShapeLayer(string id)
     {
         var mask = new RasterMask(1, 1, ImmutableArray.Create(true));
@@ -356,5 +425,188 @@ public sealed class SvgCreationOrchestratorTests
         }
 
         public void Report(T value) => _callback(value);
+    }
+
+    private sealed class NullDebugSink : IDebugSink
+    {
+        public Task WriteSnapshotAsync(string stageName, DebugSnapshot snapshot, DebugExecutionContext context, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+
+        public Task CompleteAsync(DebugExecutionContext context, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+    }
+
+    private sealed class PassthroughImageReader : IImageReader
+    {
+        private readonly ImageData _image;
+
+        public PassthroughImageReader(ImageData image)
+        {
+            _image = image;
+        }
+
+        public Task<ImageData> ReadAsync(SvgCreatorRunOptions options, CancellationToken cancellationToken)
+            => Task.FromResult(_image);
+    }
+
+    private sealed class PassthroughQuantizer : IQuantizer
+    {
+        private readonly QuantizationResult? _result;
+
+        public PassthroughQuantizer()
+        {
+        }
+
+        public PassthroughQuantizer(QuantizationResult result)
+        {
+            _result = result;
+        }
+
+        public Task<QuantizationResult> QuantizeAsync(ImageData image, SvgCreatorRunOptions options, CancellationToken cancellationToken)
+        {
+            if (_result is not null)
+            {
+                return Task.FromResult(_result);
+            }
+
+            return Task.FromResult(new QuantizationResult(
+                image,
+                ImmutableArray.Create(new RgbColor(0, 0, 0)),
+                ImmutableArray.Create(0)));
+        }
+    }
+
+    private sealed class PassthroughShapeLayerBuilder : IShapeLayerBuilder
+    {
+        private readonly IReadOnlyList<ShapeLayer>? _layers;
+
+        public PassthroughShapeLayerBuilder()
+        {
+        }
+
+        public PassthroughShapeLayerBuilder(ShapeLayer layer)
+        {
+            _layers = new[] { layer };
+        }
+
+        public Task<ShapeLayerExtractionResult> BuildLayersAsync(QuantizationResult quantization, CancellationToken cancellationToken)
+        {
+            var layers = _layers ?? new[] { CreateShapeLayer("layer-auto") };
+            return Task.FromResult(new ShapeLayerExtractionResult(layers, Array.Empty<NoisyLayer>()));
+        }
+    }
+
+    private sealed class PassthroughDepthOrderingService : IDepthOrderingService
+    {
+        private readonly DepthOrder? _depthOrder;
+
+        public PassthroughDepthOrderingService()
+        {
+        }
+
+        public PassthroughDepthOrderingService(DepthOrder depthOrder)
+        {
+            _depthOrder = depthOrder;
+        }
+
+        public DepthOrder Compute(IReadOnlyList<ShapeLayer> layers, DepthOrderingOptions options)
+        {
+            if (_depthOrder is not null)
+            {
+                return _depthOrder;
+            }
+
+            return new DepthOrder(new Dictionary<string, int> { [layers[0].Id] = 0 });
+        }
+    }
+
+    private sealed class PassthroughOcclusionCompleter : IOcclusionCompleter
+    {
+        private readonly IReadOnlyList<ShapeLayer>? _layers;
+
+        public PassthroughOcclusionCompleter()
+        {
+        }
+
+        public PassthroughOcclusionCompleter(ShapeLayer layer)
+        {
+            _layers = new[] { layer };
+        }
+
+        public Task<OcclusionCompletionResult> CompleteAsync(
+            IReadOnlyList<ShapeLayer> layers,
+            DepthOrder depthOrder,
+            OcclusionCompletionOptions options,
+            CancellationToken cancellationToken)
+        {
+            var completed = _layers ?? layers;
+            return Task.FromResult(new OcclusionCompletionResult(completed));
+        }
+    }
+
+    private sealed class ThrowingImageReader : IImageReader
+    {
+        private readonly Exception _exception;
+
+        public ThrowingImageReader(Exception exception)
+        {
+            _exception = exception;
+        }
+
+        public Task<ImageData> ReadAsync(SvgCreatorRunOptions options, CancellationToken cancellationToken)
+            => Task.FromException<ImageData>(_exception);
+    }
+
+    private sealed class ThrowingDebugSink : IDebugSink
+    {
+        private readonly Exception _exception;
+
+        public ThrowingDebugSink(Exception exception)
+        {
+            _exception = exception;
+        }
+
+        public Task WriteSnapshotAsync(string stageName, DebugSnapshot snapshot, DebugExecutionContext context, CancellationToken cancellationToken = default)
+            => Task.FromException(_exception);
+
+        public Task CompleteAsync(DebugExecutionContext context, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+    }
+
+    private sealed class DebugSnapshotStage : IPipelineStage
+    {
+        private readonly ImageData _image;
+        private readonly QuantizationResult _quantization;
+        private readonly ShapeLayer _layer;
+        private readonly DepthOrder _depthOrder;
+
+        public DebugSnapshotStage(ImageData image, QuantizationResult quantization, ShapeLayer layer, DepthOrder depthOrder)
+        {
+            _image = image;
+            _quantization = quantization;
+            _layer = layer;
+            _depthOrder = depthOrder;
+        }
+
+        public string Name => "debug";
+
+        public string DisplayName => "Debug";
+
+        public string? DebugStageName => "debug-stage";
+
+        public Task ExecuteAsync(PipelineContext context, PipelineDependencies dependencies, CancellationToken cancellationToken)
+        {
+            context.SetImage(_image);
+            context.SetQuantization(_quantization);
+            context.SetShapeLayerExtractionResult(new ShapeLayerExtractionResult(new[] { _layer }, Array.Empty<NoisyLayer>()));
+            context.SetDepthOrder(_depthOrder);
+            context.SetCompletedLayers(new[] { _layer });
+            return Task.CompletedTask;
+        }
+
+        public DebugSnapshot? CreateDebugSnapshot(PipelineContext context)
+        {
+            return DebugSnapshot.From(_quantization, new[] { _layer });
+        }
     }
 }
