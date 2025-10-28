@@ -1,0 +1,1 @@
+2025-10-28: Completed SDD task 2.8 (BezierFitter) for svg-creator spec. Implemented BezierFitter with boundary simplification, cubic control smoothing, added LayerPathGeometry model, and regression tests covering rectangles, colinear simplification, and smooth arcs. Verified with `dotnet test`.

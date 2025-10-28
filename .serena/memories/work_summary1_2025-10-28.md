@@ -1,0 +1,1 @@
+2025-10-28: Completed SDD task 2.8 for SvgCreator spec. Added BezierFitter component with boundary simplification, cubic smoothing, and LayerPathGeometry model. Introduced BezierFitter unit tests for rectangles, colinear simplification, and smooth arcs. dotnet test passes.
