@@ -1,4 +1,5 @@
 ﻿using System;
+using SvgCreator.Core.DepthOrdering;
 using SvgCreator.Core.Models;
 
 namespace SvgCreator.Core.Orchestration;
@@ -13,11 +14,13 @@ public sealed class SvgCreationResult
     /// </summary>
     /// <param name="image">処理済みの入力画像。</param>
     /// <param name="quantization">量子化結果。</param>
+    /// <param name="depthOrder">レイヤーの深度順序。</param>
     /// <exception cref="ArgumentNullException">必須引数が null の場合に送出されます。</exception>
-    public SvgCreationResult(ImageData image, QuantizationResult quantization)
+    public SvgCreationResult(ImageData image, QuantizationResult quantization, DepthOrder depthOrder)
     {
         Image = image ?? throw new ArgumentNullException(nameof(image));
         Quantization = quantization ?? throw new ArgumentNullException(nameof(quantization));
+        DepthOrder = depthOrder ?? throw new ArgumentNullException(nameof(depthOrder));
     }
 
     /// <summary>
@@ -29,4 +32,9 @@ public sealed class SvgCreationResult
     /// 量子化結果を取得します。
     /// </summary>
     public QuantizationResult Quantization { get; }
+
+    /// <summary>
+    /// レイヤーの深度順序を取得します。
+    /// </summary>
+    public DepthOrder DepthOrder { get; }
 }

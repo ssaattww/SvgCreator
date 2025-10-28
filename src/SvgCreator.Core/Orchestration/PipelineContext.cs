@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using SvgCreator.Core.DepthOrdering;
 using SvgCreator.Core.Diagnostics;
 using SvgCreator.Core.Models;
 using SvgCreator.Core.ShapeLayers;
@@ -43,6 +44,11 @@ public sealed class PipelineContext
     /// </summary>
     public IReadOnlyList<NoisyLayer> NoisyLayers { get; private set; } = Array.Empty<NoisyLayer>();
 
+    /// <summary>
+    /// 深度順序を取得します。
+    /// </summary>
+    public DepthOrder? DepthOrder { get; private set; }
+
     public void SetImage(ImageData image)
     {
         Image = image ?? throw new ArgumentNullException(nameof(image));
@@ -63,6 +69,11 @@ public sealed class PipelineContext
         ShapeLayers = result.ShapeLayers ?? throw new ArgumentException("ShapeLayers cannot be null.", nameof(result));
         NoisyLayers = result.NoisyLayers ?? throw new ArgumentException("NoisyLayers cannot be null.", nameof(result));
     }
+
+    public void SetDepthOrder(DepthOrder depthOrder)
+    {
+        DepthOrder = depthOrder ?? throw new ArgumentNullException(nameof(depthOrder));
+    }
 }
 
 /// <summary>
@@ -73,11 +84,13 @@ public sealed class PipelineDependencies
     public PipelineDependencies(
         IImageReader imageReader,
         IQuantizer quantizer,
-        IShapeLayerBuilder shapeLayerBuilder)
+        IShapeLayerBuilder shapeLayerBuilder,
+        IDepthOrderingService depthOrdering)
     {
         ImageReader = imageReader ?? throw new ArgumentNullException(nameof(imageReader));
         Quantizer = quantizer ?? throw new ArgumentNullException(nameof(quantizer));
         ShapeLayerBuilder = shapeLayerBuilder ?? throw new ArgumentNullException(nameof(shapeLayerBuilder));
+        DepthOrdering = depthOrdering ?? throw new ArgumentNullException(nameof(depthOrdering));
     }
 
     /// <summary>
@@ -94,6 +107,11 @@ public sealed class PipelineDependencies
     /// シェイプレイヤー抽出コンポーネントを取得します。
     /// </summary>
     public IShapeLayerBuilder ShapeLayerBuilder { get; }
+
+    /// <summary>
+    /// 深度順序計算コンポーネントを取得します。
+    /// </summary>
+    public IDepthOrderingService DepthOrdering { get; }
 }
 
 /// <summary>

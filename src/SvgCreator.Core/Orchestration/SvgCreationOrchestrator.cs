@@ -93,7 +93,12 @@ public sealed class SvgCreationOrchestrator
             throw new InvalidOperationException("The pipeline did not produce a quantization result.");
         }
 
-        return new SvgCreationResult(context.Image, context.Quantization);
+        if (context.DepthOrder is null)
+        {
+            throw new InvalidOperationException("The pipeline did not produce a depth order.");
+        }
+
+        return new SvgCreationResult(context.Image, context.Quantization, context.DepthOrder);
     }
 
     private void ReportProgress(IPipelineStage stage, PipelineStageStatus status, int index, int total)

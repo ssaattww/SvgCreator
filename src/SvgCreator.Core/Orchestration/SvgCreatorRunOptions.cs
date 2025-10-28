@@ -55,6 +55,11 @@ public sealed class SvgCreatorRunOptions
     public int? QuantizationClusterCount { get; init; }
 
     /// <summary>
+    /// 深度順序のデルタ閾値を取得または設定します。
+    /// </summary>
+    public float? DepthOrderingDelta { get; init; }
+
+    /// <summary>
     /// デバッグモードを有効にするかどうかを取得または設定します。
     /// </summary>
     public bool EnableDebug { get; init; }
