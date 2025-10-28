@@ -15,7 +15,7 @@ public sealed class SvgEmitterTests
 {
     private static readonly XNamespace Svg = "http://www.w3.org/2000/svg";
 
-    // EmitDocument_RootContainsExpectedAttributes の挙動を検証します。
+    // 生成された SVG のルート要素が仕様通りの寸法・メタ属性を持つことを確認する。
     [Fact]
     public void EmitDocument_RootContainsExpectedAttributes()
     {
@@ -38,7 +38,7 @@ public sealed class SvgEmitterTests
         Assert.Equal("SvgCreator", root.Attribute("data-generator")?.Value);
     }
 
-    // EmitDocument_ProducesGroupsInDepthOrder の挙動を検証します。
+    // レイヤーが深度順に `<g>` として並ぶことを確認し、重ね順メタデータの整合性を担保する。
     [Fact]
     public void EmitDocument_ProducesGroupsInDepthOrder()
     {
@@ -69,7 +69,7 @@ public sealed class SvgEmitterTests
         Assert.Equal("#c86432", frontFill);
     }
 
-    // EmitDocument_FormatsPathDataWithoutRedundantZeroes の挙動を検証します。
+    // パスコマンドの数値が余分な小数桁を含まずフォーマットされることを確認する。
     [Fact]
     public void EmitDocument_FormatsPathDataWithoutRedundantZeroes()
     {
@@ -106,7 +106,7 @@ public sealed class SvgEmitterTests
         Assert.EndsWith("Z", data, StringComparison.Ordinal);
     }
 
-    // EmitDocument_IncludesHoleSubpathsWithEvenOddFillRule の挙動を検証します。
+    // 穴付きレイヤーで `fill-rule="evenodd"` と複数サブパスが出力されることを確認し、ホール描画に対応する。
     [Fact]
     public void EmitDocument_IncludesHoleSubpathsWithEvenOddFillRule()
     {

@@ -16,7 +16,7 @@ public sealed class SizeLimiterTests
 {
     private static readonly XNamespace Svg = "http://www.w3.org/2000/svg";
 
-    // EmitWithLimit_ReturnsSvgWithinThreshold の挙動を検証します。
+    // 十分な上限値を指定した場合に既定精度の SVG をそのまま出力できることを確認する。
     [Fact]
     public void EmitWithLimit_ReturnsSvgWithinThreshold()
     {
@@ -33,7 +33,7 @@ public sealed class SizeLimiterTests
         Assert.Equal(3, document.AppliedDecimalPlaces);
     }
 
-    // EmitWithLimit_ReducesPrecisionToSatisfyLimit の挙動を検証します。
+    // バイト制限を満たすために座標小数桁が自動的に減少することを確認する。
     [Fact]
     public void EmitWithLimit_ReducesPrecisionToSatisfyLimit()
     {
@@ -58,7 +58,7 @@ public sealed class SizeLimiterTests
         Assert.DoesNotContain(".", pathData);
     }
 
-    // EmitWithLimit_WhenCannotReduceFurther_Throws の挙動を検証します。
+    // 0 桁まで削減しても制約を満たせない場合に例外が送出されることを確認する。
     [Fact]
     public void EmitWithLimit_WhenCannotReduceFurther_Throws()
     {

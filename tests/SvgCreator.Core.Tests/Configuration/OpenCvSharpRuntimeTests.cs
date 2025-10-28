@@ -7,7 +7,7 @@ namespace SvgCreator.Core.Tests.Configuration;
 
 public sealed class OpenCvSharpRuntimeTests
 {
-    // SvgCreatorCoreProject_UsesCrossPlatformOpenCvSharpRuntime の挙動を検証します。
+    // プロジェクトが Windows 固定の依存ではなく cross-platform な OpenCvSharp ランタイム設定を保持しているかを確認する。
     [Fact]
     public void SvgCreatorCoreProject_UsesCrossPlatformOpenCvSharpRuntime()
     {
