@@ -1,0 +1,1 @@
+2025-10-28: Completed svg-creator task 2.12 (subtasks 2.12.1-2.12.4). Added SvgCreatorErrorCatalog, SvgCreatorException, SvgCreatorErrorTranslator with orchestrator integration. Expanded orchestrator tests to cover debug sink, file-not-found, unsupported format, invalid data, depth-order failures. dotnet test passing with 112 tests. Next pending task is 2.13 smoke test.
