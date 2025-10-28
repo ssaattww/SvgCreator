@@ -288,6 +288,69 @@ public sealed class SvgCreationOrchestratorTests
         Assert.Contains("debug directory locked", exception.Message);
     }
 
+    // 非対応形式による入力エラーが InputUnsupportedFormat コードへ分類されることを検証
+    [Fact]
+    public async Task ExecuteAsync_WhenImageStageThrowsNotSupported_ThrowsSvgCreatorException()
+    {
+        var options = new SvgCreatorRunOptions("input.bmp", "out", new Dictionary<string, string>());
+
+        var orchestrator = new SvgCreationOrchestrator(
+            new IPipelineStage[]
+            {
+                new FailingStage(PipelineStageNames.ImageLoading, new NotSupportedException("bmp"))
+            },
+            CreateNoOpDependencies(),
+            new NullDebugSink());
+
+        var exception = await Assert.ThrowsAsync<SvgCreatorException>(() => orchestrator.ExecuteAsync(options, CancellationToken.None));
+
+        Assert.Equal(SvgCreatorErrorCode.InputUnsupportedFormat, exception.ErrorCode);
+        Assert.Equal(SvgCreatorErrorCategory.Input, exception.Category);
+        Assert.Contains("bmp", exception.Message);
+    }
+
+    // 画像デコード失敗が ImageDecodeFailed コードへ分類されることを検証
+    [Fact]
+    public async Task ExecuteAsync_WhenImageStageThrowsInvalidData_ThrowsSvgCreatorException()
+    {
+        var options = new SvgCreatorRunOptions("input.png", "out", new Dictionary<string, string>());
+
+        var orchestrator = new SvgCreationOrchestrator(
+            new IPipelineStage[]
+            {
+                new FailingStage(PipelineStageNames.ImageLoading, new InvalidDataException("corrupted"))
+            },
+            CreateNoOpDependencies(),
+            new NullDebugSink());
+
+        var exception = await Assert.ThrowsAsync<SvgCreatorException>(() => orchestrator.ExecuteAsync(options, CancellationToken.None));
+
+        Assert.Equal(SvgCreatorErrorCode.ImageDecodeFailed, exception.ErrorCode);
+        Assert.Equal(SvgCreatorErrorCategory.Input, exception.Category);
+        Assert.Contains("corrupted", exception.Message);
+    }
+
+    // 深度整序ステージの一般的な失敗が DepthOrderingCyclicDependency コードになることを検証
+    [Fact]
+    public async Task ExecuteAsync_WhenDepthStageFails_ThrowsSvgCreatorException()
+    {
+        var options = new SvgCreatorRunOptions("input.png", "out", new Dictionary<string, string>());
+
+        var orchestrator = new SvgCreationOrchestrator(
+            new IPipelineStage[]
+            {
+                new FailingStage(PipelineStageNames.DepthOrdering, new InvalidOperationException("cycle"))
+            },
+            CreateNoOpDependencies(),
+            new NullDebugSink());
+
+        var exception = await Assert.ThrowsAsync<SvgCreatorException>(() => orchestrator.ExecuteAsync(options, CancellationToken.None));
+
+        Assert.Equal(SvgCreatorErrorCode.DepthOrderingCyclicDependency, exception.ErrorCode);
+        Assert.Equal(SvgCreatorErrorCategory.DepthOrdering, exception.Category);
+        Assert.Contains("cycle", exception.Message);
+    }
+
     private static ShapeLayer CreateShapeLayer(string id)
     {
         var mask = new RasterMask(1, 1, ImmutableArray.Create(true));
@@ -610,5 +673,46 @@ public sealed class SvgCreationOrchestratorTests
         {
             return DebugSnapshot.From(_quantization, new[] { _layer });
         }
+    }
+
+    private sealed class FailingStage : IPipelineStage
+    {
+        private readonly string _name;
+        private readonly Exception _exception;
+
+        public FailingStage(string name, Exception exception)
+        {
+            _name = name;
+            _exception = exception;
+        }
+
+        public string Name => _name;
+
+        public string DisplayName => _name;
+
+        public string? DebugStageName => null;
+
+        public Task ExecuteAsync(PipelineContext context, PipelineDependencies dependencies, CancellationToken cancellationToken)
+            => Task.FromException(_exception);
+
+        public DebugSnapshot? CreateDebugSnapshot(PipelineContext context) => null;
+    }
+
+    private static PipelineDependencies CreateNoOpDependencies()
+    {
+        var image = new ImageData(1, 1, PixelFormat.Rgb, new byte[] { 0, 0, 0 });
+        var quantization = new QuantizationResult(
+            image,
+            ImmutableArray.Create(new RgbColor(0, 0, 0)),
+            ImmutableArray.Create(0));
+        var layer = CreateShapeLayer("noop-layer");
+        var depthOrder = new DepthOrder(new Dictionary<string, int> { [layer.Id] = 0 });
+
+        return new PipelineDependencies(
+            new PassthroughImageReader(image),
+            new PassthroughQuantizer(quantization),
+            new PassthroughShapeLayerBuilder(layer),
+            new PassthroughDepthOrderingService(depthOrder),
+            new PassthroughOcclusionCompleter(layer));
     }
 }
