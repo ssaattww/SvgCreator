@@ -92,6 +92,8 @@
 - 入力: `DebugSnapshot`, ステージ識別子、CLI オプション（保存先、対象ステージなど）。
 - 出力: JSONファイル（`pipeline.json`, `layers.json`, `metadata.json` 等）、画像ダンプ（任意）。
 - 依存関係: System.Text.Json, System.IO, Logging（保存結果の通知）。
+- 出力レイアウト: 既定のベースパスは `<out>/debug/`。`metadata.json` にファイル一覧を蓄積し、パイプライン全体は `pipeline.json`、レイヤ概要は `layers.json`。ステージ固有スナップショットは `stages/<stage-name>.json`、ステージ固有アセットは `stages/<stage-name>/assets/` 以下に配置する。ステージ名は英数字以外をハイフンへ変換し小文字化する。
+- Null シンク: `--debug` 未指定時は実行コストを避けるため Null 実装を選択し、File シンクは `--debug` 指定時のみ初期化する。`--debug-stages` でフィルタを行い、`--debug-keep-temp=false` の場合は完了時に `assets/` 配下をクリーンアップする。
 
 ## データモデル
 ### ImageData

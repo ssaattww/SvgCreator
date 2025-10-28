@@ -59,6 +59,38 @@ public sealed class FileDebugSinkTests : IAsyncLifetime
         Assert.Equal(2, files.GetArrayLength());
     }
 
+    // `--debug-keep-temp=false` 指定時にステージ資産ディレクトリがクリーンアップされることを確認
+    [Fact]
+    public async Task CompleteAsync_RemovesAssetDirectories_WhenKeepTemporaryFilesDisabled()
+    {
+        var layout = new DebugDirectoryLayout(_tempDir);
+        var serializer = new DebugSnapshotSerializer();
+        var metadataBuilder = new DebugMetadataBuilder(DebugSnapshot.CurrentVersion);
+
+        var sink = new FileDebugSink(
+            layout,
+            serializer,
+            metadataBuilder,
+            enabledStages: Array.Empty<string>(),
+            keepTemporaryFiles: false);
+
+        var context = new DebugExecutionContext(DateTimeOffset.UtcNow, new Dictionary<string, string>());
+        var snapshot = CreateDummySnapshot();
+
+        await sink.WriteSnapshotAsync("Quantizer", snapshot, context);
+
+        var assetsPath = layout.GetStageAssetsDirectory("Quantizer");
+        Directory.CreateDirectory(assetsPath);
+        var dummyAsset = SystemPath.Combine(assetsPath, "contour.png");
+        await File.WriteAllTextAsync(dummyAsset, "binary");
+
+        await sink.CompleteAsync(context);
+
+        Assert.False(Directory.Exists(assetsPath));
+        var stageDirectory = SystemPath.GetDirectoryName(assetsPath)!;
+        Assert.False(Directory.Exists(stageDirectory));
+    }
+
     private static DebugSnapshot CreateDummySnapshot()
     {
         var image = new DebugSnapshotImage

@@ -77,7 +77,31 @@ public sealed class FileDebugSink : IDebugSink
 
         if (!_keepTemporaryFiles)
         {
-            // 現状テンポラリファイルは生成していないため将来拡張に備えたプレースホルダ。
+            CleanupTemporaryAssets();
+        }
+    }
+
+    private void CleanupTemporaryAssets()
+    {
+        var stagesDirectory = Path.Combine(_layout.BaseDirectory, "stages");
+        if (!Directory.Exists(stagesDirectory))
+        {
+            return;
+        }
+
+        foreach (var stageDirectory in Directory.EnumerateDirectories(stagesDirectory))
+        {
+            var assetsDirectory = Path.Combine(stageDirectory, "assets");
+            if (Directory.Exists(assetsDirectory))
+            {
+                Directory.Delete(assetsDirectory, recursive: true);
+            }
+
+            // 資産削除後に空になったステージディレクトリは片付ける。
+            if (Directory.Exists(stageDirectory) && Directory.EnumerateFileSystemEntries(stageDirectory).Any() == false)
+            {
+                Directory.Delete(stageDirectory);
+            }
         }
     }
 
