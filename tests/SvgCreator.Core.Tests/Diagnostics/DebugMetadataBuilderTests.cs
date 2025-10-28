@@ -7,8 +7,8 @@ namespace SvgCreator.Core.Tests.Diagnostics;
 
 public sealed class DebugMetadataBuilderTests
 {
-    [Fact]
     // ファイルエントリを追加するとメタデータに反映されることを確認
+    [Fact]
     public void AddFile_AddsEntry()
     {
         var builder = new DebugMetadataBuilder("1.0");
@@ -27,8 +27,8 @@ public sealed class DebugMetadataBuilderTests
         Assert.Equal("8", metadata.CliOptions["threads"]);
     }
 
-    [Fact]
     // JSON 出力に主要フィールドが含まれることを確認
+    [Fact]
     public void ToJson_ProducesExpectedStructure()
     {
         var builder = new DebugMetadataBuilder("1.0");

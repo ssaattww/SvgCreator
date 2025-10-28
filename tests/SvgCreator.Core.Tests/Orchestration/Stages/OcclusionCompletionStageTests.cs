@@ -15,8 +15,8 @@ namespace SvgCreator.Core.Tests.Orchestration.Stages;
 
 public sealed class OcclusionCompletionStageTests
 {
-    [Fact]
     // 深度順序が未設定の場合は例外となることを確認
+    [Fact]
     public async Task ExecuteAsync_WhenDepthOrderMissing_ThrowsInvalidOperation()
     {
         var stage = new OcclusionCompletionStage();
@@ -30,8 +30,8 @@ public sealed class OcclusionCompletionStageTests
             stage.ExecuteAsync(context, dependencies, CancellationToken.None));
     }
 
-    [Fact]
     // 成功時に完了済みシェイプレイヤーがコンテキストへ保存されることを確認
+    [Fact]
     public async Task ExecuteAsync_WithValidContext_StoresCompletedLayers()
     {
         var options = new SvgCreatorRunOptions("input.png", "out");

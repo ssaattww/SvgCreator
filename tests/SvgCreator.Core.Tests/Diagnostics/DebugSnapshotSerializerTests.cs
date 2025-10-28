@@ -11,8 +11,8 @@ public sealed class DebugSnapshotSerializerTests
 {
     private readonly DebugSnapshotSerializer _serializer = new();
 
-    [Fact]
     // スナップショットを書き出して読み戻すと同じ内容になることを確認
+    [Fact]
     public async Task SerializeAndDeserialize_RoundTripsSnapshot()
     {
         var snapshot = CreateSampleSnapshot();
@@ -36,8 +36,8 @@ public sealed class DebugSnapshotSerializerTests
         Assert.Equal(DebugSnapshot.CurrentVersion, restored.Version);
     }
 
-    [Fact]
     // シリアライズされた JSON に主要フィールドが含まれることを確認
+    [Fact]
     public async Task SerializeAsync_WritesExpectedJson()
     {
         var snapshot = CreateSampleSnapshot();
@@ -53,8 +53,8 @@ public sealed class DebugSnapshotSerializerTests
         Assert.Contains(DebugSnapshot.CurrentVersion, json);
     }
 
-    [Fact]
     // 対応していないバージョンを読み込むと例外となることを確認
+    [Fact]
     public async Task DeserializeAsync_Throws_OnUnsupportedVersion()
     {
         const string json = """

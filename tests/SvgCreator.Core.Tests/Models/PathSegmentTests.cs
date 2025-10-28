@@ -36,8 +36,8 @@ public sealed class PathSegmentTests
         Assert.Equal(pointCount, segment.Points.Length);
     }
 
-    [Fact]
     // 入力制御点がコピーされることを確認
+    [Fact]
     public void Constructor_CopiesPoints()
     {
         var points = new[] { new Vector2(1, 2) };

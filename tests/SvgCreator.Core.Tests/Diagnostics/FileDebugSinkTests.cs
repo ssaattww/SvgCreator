@@ -28,8 +28,8 @@ public sealed class FileDebugSinkTests : IAsyncLifetime
         return Task.CompletedTask;
     }
 
-    [Fact]
     // パイプラインおよびステージスナップショットが出力されることを確認
+    [Fact]
     public async Task WriteSnapshotAsync_WritesFilesAndMetadata()
     {
         var layout = new DebugDirectoryLayout(_tempDir);

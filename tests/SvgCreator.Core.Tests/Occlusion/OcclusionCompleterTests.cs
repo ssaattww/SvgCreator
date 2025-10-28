@@ -11,8 +11,8 @@ namespace SvgCreator.Core.Tests.Occlusion;
 
 public sealed class OcclusionCompleterTests
 {
-    [Fact]
     // 境界が未閉鎖のシェイプレイヤーでも閉領域に補完されることを確認
+    [Fact]
     public async Task CompleteAsync_WithOpenBoundary_AppendsClosingPoint()
     {
         var layer = CreateShapeLayer(
@@ -48,8 +48,8 @@ public sealed class OcclusionCompleterTests
         Assert.Equal(boundary[0], boundary[^1]);
     }
 
-    [Fact]
     // 既に閉じている境界はそのまま維持されることを確認
+    [Fact]
     public async Task CompleteAsync_WithClosedBoundary_PreservesShape()
     {
         var points = ImmutableArray.Create(

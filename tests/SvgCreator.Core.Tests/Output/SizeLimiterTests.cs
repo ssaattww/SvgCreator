@@ -16,6 +16,7 @@ public sealed class SizeLimiterTests
 {
     private static readonly XNamespace Svg = "http://www.w3.org/2000/svg";
 
+    // EmitWithLimit_ReturnsSvgWithinThreshold の挙動を検証します。
     [Fact]
     public void EmitWithLimit_ReturnsSvgWithinThreshold()
     {
@@ -32,6 +33,7 @@ public sealed class SizeLimiterTests
         Assert.Equal(3, document.AppliedDecimalPlaces);
     }
 
+    // EmitWithLimit_ReducesPrecisionToSatisfyLimit の挙動を検証します。
     [Fact]
     public void EmitWithLimit_ReducesPrecisionToSatisfyLimit()
     {
@@ -56,6 +58,7 @@ public sealed class SizeLimiterTests
         Assert.DoesNotContain(".", pathData);
     }
 
+    // EmitWithLimit_WhenCannotReduceFurther_Throws の挙動を検証します。
     [Fact]
     public void EmitWithLimit_WhenCannotReduceFurther_Throws()
     {

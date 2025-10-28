@@ -12,6 +12,7 @@ namespace SvgCreator.Core.Tests.Output;
 
 public sealed class ExportFilterTests
 {
+    // Filter_NoSelection_ReturnsAllLayersInDepthOrder の挙動を検証します。
     [Fact]
     public void Filter_NoSelection_ReturnsAllLayersInDepthOrder()
     {
@@ -29,6 +30,7 @@ public sealed class ExportFilterTests
         Assert.True(result.All(item => geometries.Contains(item.Geometry)));
     }
 
+    // Filter_WithSelection_ReturnsRequestedLayersSortedByDepth の挙動を検証します。
     [Fact]
     public void Filter_WithSelection_ReturnsRequestedLayersSortedByDepth()
     {
@@ -46,6 +48,7 @@ public sealed class ExportFilterTests
         Assert.Equal(new[] { 0, 2 }, result.Select(r => r.Depth));
     }
 
+    // Filter_WithUnknownLayer_Throws の挙動を検証します。
     [Fact]
     public void Filter_WithUnknownLayer_Throws()
     {

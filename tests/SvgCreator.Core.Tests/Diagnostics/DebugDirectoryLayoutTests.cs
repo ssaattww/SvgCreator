@@ -5,8 +5,8 @@ namespace SvgCreator.Core.Tests.Diagnostics;
 
 public sealed class DebugDirectoryLayoutTests
 {
-    [Fact]
     // 標準パスが期待通り生成されることを確認
+    [Fact]
     public void Properties_ReturnExpectedPaths()
     {
         var layout = new DebugDirectoryLayout(Path.Combine("out", "debug"));
@@ -17,8 +17,8 @@ public sealed class DebugDirectoryLayoutTests
         Assert.Equal(Path.Combine("out", "debug", "layers.json"), layout.LayerSummaryPath);
     }
 
-    [Fact]
     // ステージ名がサニタイズされてステージディレクトリへマップされることを確認
+    [Fact]
     public void GetStageSnapshotPath_SanitizesStageName()
     {
         var layout = new DebugDirectoryLayout("debug-out");
@@ -28,8 +28,8 @@ public sealed class DebugDirectoryLayoutTests
         Assert.Equal(Path.Combine("debug-out", "stages", "bezier-fitter.json"), path);
     }
 
-    [Fact]
     // アセットディレクトリはステージ名ごとに作成されることを確認
+    [Fact]
     public void GetStageAssetsDirectory_ReturnsExpectedPath()
     {
         var layout = new DebugDirectoryLayout("debug-out");

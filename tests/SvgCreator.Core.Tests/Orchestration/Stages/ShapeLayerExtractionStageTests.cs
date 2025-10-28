@@ -15,8 +15,8 @@ namespace SvgCreator.Core.Tests.Orchestration.Stages;
 
 public sealed class ShapeLayerExtractionStageTests
 {
-    [Fact]
     // 量子化結果からシェイプレイヤーを構築し、パイプラインコンテキストへ保存することを確認
+    [Fact]
     public async Task ExecuteAsync_WithQuantization_BuildsAndStoresShapeLayers()
     {
         var image = new ImageData(1, 1, PixelFormat.Rgb, new byte[] { 1, 2, 3 });

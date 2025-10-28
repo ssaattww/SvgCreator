@@ -7,6 +7,7 @@ namespace SvgCreator.Core.Tests.Configuration;
 
 public sealed class OpenCvSharpRuntimeTests
 {
+    // SvgCreatorCoreProject_UsesCrossPlatformOpenCvSharpRuntime の挙動を検証します。
     [Fact]
     public void SvgCreatorCoreProject_UsesCrossPlatformOpenCvSharpRuntime()
     {

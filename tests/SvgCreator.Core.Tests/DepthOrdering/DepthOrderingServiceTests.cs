@@ -8,8 +8,8 @@ namespace SvgCreator.Core.Tests.DepthOrdering;
 
 public sealed class DepthOrderingServiceTests
 {
-    [Fact]
     // 中央の小さなレイヤーが前面になるよう深度が決定されることを確認
+    [Fact]
     public void ComputeDepthOrder_WithNestedLayers_PlacesInnerLayerInFront()
     {
         var layers = new List<ShapeLayer>
@@ -25,8 +25,8 @@ public sealed class DepthOrderingServiceTests
         Assert.Equal(1, order.GetDepth("layer-foreground"));
     }
 
-    [Fact]
     // 面積差がデルタ未満の場合はエッジを張らず、フォールバック順序が適用されることを確認
+    [Fact]
     public void ComputeDepthOrder_WithNearEqualAreas_UsesFallbackOrdering()
     {
         var layers = new List<ShapeLayer>
@@ -42,8 +42,8 @@ public sealed class DepthOrderingServiceTests
         Assert.Equal(1, order.GetDepth("layer-b"));
     }
 
-    [Fact]
     // 複数レイヤーが連鎖的に接している場合でもトポロジカルソートで一貫した深度が得られることを確認
+    [Fact]
     public void ComputeDepthOrder_WithLayerChain_ComputesConsistentOrdering()
     {
         var layers = new List<ShapeLayer>

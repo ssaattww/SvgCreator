@@ -10,8 +10,8 @@ namespace SvgCreator.Core.Tests.ShapeLayers;
 
 public sealed class ShapeLayerBuilderTests
 {
-    [Fact]
     // 2色に量子化された 2x2 画像からレイヤーを抽出できることを確認
+    [Fact]
     public async Task BuildLayersAsync_WithTwoColorColumns_ReturnsTwoShapeLayers()
     {
         var palette = ImmutableArray.Create(new RgbColor(10, 20, 30), new RgbColor(200, 210, 220));
@@ -53,8 +53,8 @@ public sealed class ShapeLayerBuilderTests
             });
     }
 
-    [Fact]
     // 穴領域を検出し ShapeLayer.Holes に格納できることを確認
+    [Fact]
     public async Task BuildLayersAsync_WithNestedComponent_ExtractsHoleBoundary()
     {
         var palette = ImmutableArray.Create(new RgbColor(50, 60, 70), new RgbColor(200, 210, 220));
@@ -93,8 +93,8 @@ public sealed class ShapeLayerBuilderTests
         Assert.Equal(new RgbColor(200, 210, 220), noise.Color);
     }
 
-    [Fact]
     // 面積しきい値に基づき微小成分をノイズとして除外することを確認
+    [Fact]
     public async Task BuildLayersAsync_WithAreaThreshold_ClassifiesNoisyComponents()
     {
         var palette = ImmutableArray.Create(new RgbColor(10, 20, 30), new RgbColor(200, 210, 220));
@@ -121,8 +121,8 @@ public sealed class ShapeLayerBuilderTests
         Assert.Equal(2, noise.Area);
     }
 
-    [Fact]
     // しきい値と同値の面積・周長を持つ成分は除外されないことを確認
+    [Fact]
     public async Task BuildLayersAsync_WithThresholdBoundary_DoesNotDropComponent()
     {
         var palette = ImmutableArray.Create(new RgbColor(10, 20, 30), new RgbColor(200, 210, 220));

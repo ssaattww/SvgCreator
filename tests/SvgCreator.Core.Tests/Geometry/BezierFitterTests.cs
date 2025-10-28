@@ -10,8 +10,8 @@ namespace SvgCreator.Core.Tests.Geometry;
 
 public sealed class BezierFitterTests
 {
-    [Fact]
     // 矩形境界を与えた場合に閉じたパスが生成されることを確認
+    [Fact]
     public async Task FitAsync_WithRectangle_ReturnsClosedPath()
     {
         var boundary = ImmutableArray.Create(
@@ -46,8 +46,8 @@ public sealed class BezierFitterTests
         Assert.True(Vector2.Distance(startPoint, lastSegmentEnd) <= options.ErrorTolerance + 1e-3f);
     }
 
-    [Fact]
     // 直線上の冗長点が許容誤差内で間引かれることを確認
+    [Fact]
     public async Task FitAsync_WithRedundantColinearPoints_SimplifiesSegments()
     {
         var boundary = ImmutableArray.Create(
@@ -75,8 +75,8 @@ public sealed class BezierFitterTests
         Assert.Equal(4, lineSegments.Length);
     }
 
-    [Fact]
     // 曲率が滑らかな境界では3次ベジェが生成されることを確認
+    [Fact]
     public async Task FitAsync_WithSmoothCurve_ProducesCubicBezier()
     {
         var boundaryBuilder = ImmutableArray.CreateBuilder<Vector2>();

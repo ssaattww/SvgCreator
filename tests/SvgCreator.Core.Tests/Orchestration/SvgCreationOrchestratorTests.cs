@@ -16,8 +16,8 @@ namespace SvgCreator.Core.Tests.Orchestration;
 
 public sealed class SvgCreationOrchestratorTests
 {
-    [Fact]
     // デバッグを有効にした場合にパイプライン進捗とスナップショットが出力されることを確認する
+    [Fact]
     public async Task ExecuteAsync_WhenDebugEnabled_EmitsPipelineSnapshotAndReportsProgress()
     {
         // CLI オプションとデバッグ設定を含む実行オプションを準備
@@ -167,8 +167,8 @@ public sealed class SvgCreationOrchestratorTests
         Assert.True(occlusionCompleter.WasInvoked);
     }
 
-    [Fact]
     // デバッグを無効にした場合はスナップショットが作成されないことを確認する
+    [Fact]
     public async Task ExecuteAsync_WhenDebugDisabled_SkipsDebugSinkCalls()
     {
         var options = new SvgCreatorRunOptions(

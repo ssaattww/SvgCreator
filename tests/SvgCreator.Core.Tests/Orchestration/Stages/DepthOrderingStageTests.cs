@@ -15,8 +15,8 @@ namespace SvgCreator.Core.Tests.Orchestration.Stages;
 
 public sealed class DepthOrderingStageTests
 {
-    [Fact]
     // シェイプレイヤーが未設定の場合は例外を送出することを確認
+    [Fact]
     public async Task ExecuteAsync_WhenShapeLayersMissing_ThrowsInvalidOperation()
     {
         var stage = new DepthOrderingStage();
@@ -28,8 +28,8 @@ public sealed class DepthOrderingStageTests
             stage.ExecuteAsync(context, dependencies, CancellationToken.None));
     }
 
-    [Fact]
     // 深度順序がコンテキストへ書き込まれることを確認
+    [Fact]
     public async Task ExecuteAsync_WithShapeLayers_SetsDepthOrder()
     {
         var layers = ImmutableArray.Create(

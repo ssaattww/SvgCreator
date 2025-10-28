@@ -9,8 +9,8 @@ namespace SvgCreator.Core.Tests.Quantization;
 
 public sealed class QuantizerTests
 {
-    [Fact]
     // 2つの異なるピクセルが指定クラスタ数2で別々のクラスタに割り当てられることを確認
+    [Fact]
     public async Task QuantizeAsync_WithTwoDistinctColors_ReturnsTwoClusters()
     {
         var pixels = new byte[]
@@ -43,8 +43,8 @@ public sealed class QuantizerTests
         Assert.Equal(new[] { 0, 1 }, result.LabelIndices.ToArray());
     }
 
-    [Fact]
     // 色の重複があっても最終的なパレットがユニーク色のみになることを確認
+    [Fact]
     public async Task QuantizeAsync_TrimsClustersToUniqueColors()
     {
         var pixels = new byte[]
