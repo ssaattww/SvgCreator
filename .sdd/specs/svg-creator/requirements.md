@@ -89,6 +89,10 @@
    - [ ] すべての公開メンバー（メソッド/コンストラクタ/プロパティ/フィールド/イベント）に `/// <summary>…</summary>` を付与し、引数がある場合は `/// <param name="…">…</param>`、戻り値がある場合は `/// <returns>…</returns>` を記載すること
    - [ ] 例外を送出しうる場合は `/// <exception cref="…">…</exception>` を記載すること
    - [ ] ビルド設定で XML ドキュメント出力（`<GenerateDocumentationFile>true</GenerateDocumentationFile>`）を有効化し、CI では公開 API に対する欠落ドキュメント警告（例：CS1591）が発生しないこと
+
+## 制限事項
+- レイヤー別 SVG の 15KB 制約は、座標値の小数桁数を段階的に削減する簡易アルゴリズムで満たしている。現時点では曲線分割や追加の幾何単純化は行っていないため、高度な圧縮や品質最適化が必要になった場合は別要件として拡張すること。
+
 ## 参考資料リンク
 - 調査ノート（深度付きベクタライズの要点・節番号付き）: [research-depth-vectorization.md](research-depth-vectorization.md)
 - Python実装の調査メモ（セットアップ/CLI/依存）: [research-python-impl.md](research-python-impl.md)
