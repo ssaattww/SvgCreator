@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using SvgCreator.Core.DepthOrdering;
 using SvgCreator.Core.Models;
+using SvgCreator.Core.Occlusion;
 using SvgCreator.Core.Orchestration;
 using SvgCreator.Core.Orchestration.Stages;
 using SvgCreator.Core.ShapeLayers;
@@ -59,7 +60,8 @@ public sealed class DepthOrderingStageTests
             new StubImageReader(),
             new StubQuantizer(),
             new StubShapeLayerBuilder(),
-            depthOrdering);
+            depthOrdering,
+            new StubOcclusionCompleter());
     }
 
     private static ShapeLayer CreateRectangleLayer(
@@ -137,5 +139,11 @@ public sealed class DepthOrderingStageTests
     {
         public Task<ShapeLayerExtractionResult> BuildLayersAsync(QuantizationResult quantization, CancellationToken cancellationToken)
             => Task.FromResult(new ShapeLayerExtractionResult(Array.Empty<ShapeLayer>(), Array.Empty<NoisyLayer>()));
+    }
+
+    private sealed class StubOcclusionCompleter : IOcclusionCompleter
+    {
+        public Task<OcclusionCompletionResult> CompleteAsync(IReadOnlyList<ShapeLayer> layers, DepthOrder depthOrder, OcclusionCompletionOptions options, CancellationToken cancellationToken)
+            => Task.FromResult(new OcclusionCompletionResult(Array.Empty<ShapeLayer>()));
     }
 }

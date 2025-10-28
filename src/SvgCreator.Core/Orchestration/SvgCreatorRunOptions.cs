@@ -60,6 +60,36 @@ public sealed class SvgCreatorRunOptions
     public float? DepthOrderingDelta { get; init; }
 
     /// <summary>
+    /// エラスティカ補完の最大反復回数を取得または設定します。
+    /// </summary>
+    public int? OcclusionIterationLimit { get; init; }
+
+    /// <summary>
+    /// エラスティカ補完の近傍幅を取得または設定します。
+    /// </summary>
+    public float? OcclusionEpsilon { get; init; }
+
+    /// <summary>
+    /// 曲率正則化の重みを取得または設定します。
+    /// </summary>
+    public float? OcclusionCurvatureWeight { get; init; }
+
+    /// <summary>
+    /// 弧長ペナルティの重みを取得または設定します。
+    /// </summary>
+    public float? OcclusionLengthWeight { get; init; }
+
+    /// <summary>
+    /// 補完処理の近傍半径を取得または設定します。
+    /// </summary>
+    public float? OcclusionNeighborhoodRadius { get; init; }
+
+    /// <summary>
+    /// 境界閉鎖誤差の許容値を取得または設定します。
+    /// </summary>
+    public float? OcclusionClosingTolerance { get; init; }
+
+    /// <summary>
     /// デバッグモードを有効にするかどうかを取得または設定します。
     /// </summary>
     public bool EnableDebug { get; init; }

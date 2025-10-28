@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using SvgCreator.Core.DepthOrdering;
 using SvgCreator.Core.Models;
+using SvgCreator.Core.Occlusion;
 using SvgCreator.Core.Orchestration;
 using SvgCreator.Core.Orchestration.Stages;
 using SvgCreator.Core.ShapeLayers;
@@ -41,7 +42,7 @@ public sealed class ShapeLayerExtractionStageTests
 
         var builder = new FakeShapeLayerBuilder(layers);
         var stage = new ShapeLayerExtractionStage();
-        var dependencies = new PipelineDependencies(new DummyImageReader(image), new DummyQuantizer(quantization), builder, new StubDepthOrderingService());
+        var dependencies = new PipelineDependencies(new DummyImageReader(image), new DummyQuantizer(quantization), builder, new StubDepthOrderingService(), new StubOcclusionCompleter());
 
         await stage.ExecuteAsync(context, dependencies, CancellationToken.None);
 
@@ -86,5 +87,11 @@ public sealed class ShapeLayerExtractionStageTests
     {
         public DepthOrder Compute(IReadOnlyList<ShapeLayer> layers, DepthOrderingOptions options)
             => throw new NotSupportedException("Depth ordering is not required for this test.");
+    }
+
+    private sealed class StubOcclusionCompleter : IOcclusionCompleter
+    {
+        public Task<OcclusionCompletionResult> CompleteAsync(IReadOnlyList<ShapeLayer> layers, DepthOrder depthOrder, OcclusionCompletionOptions options, CancellationToken cancellationToken)
+            => Task.FromResult(new OcclusionCompletionResult(layers));
     }
 }

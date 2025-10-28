@@ -7,6 +7,7 @@ using System.Numerics;
 using SvgCreator.Core.DepthOrdering;
 using SvgCreator.Core.Diagnostics;
 using SvgCreator.Core.Models;
+using SvgCreator.Core.Occlusion;
 using SvgCreator.Core.Orchestration;
 using SvgCreator.Core.Orchestration.Stages;
 using SvgCreator.Core.ShapeLayers;
@@ -54,6 +55,7 @@ public sealed class SvgCreationOrchestratorTests
 
         var shapeLayerBuilder = new FakeShapeLayerBuilder(layers);
         var depthOrdering = new FakeDepthOrderingService(depthOrder);
+        var occlusionCompleter = new FakeOcclusionCompleter(layers);
 
         // パイプラインの主要ステージを登録して実行
         var orchestrator = new SvgCreationOrchestrator(
@@ -62,9 +64,10 @@ public sealed class SvgCreationOrchestratorTests
                 new ImageLoadingStage(),
                 new QuantizationStage(),
                 new ShapeLayerExtractionStage(),
-                new DepthOrderingStage()
+                new DepthOrderingStage(),
+                new OcclusionCompletionStage()
             },
-            new PipelineDependencies(imageReader, quantizer, shapeLayerBuilder, depthOrdering),
+            new PipelineDependencies(imageReader, quantizer, shapeLayerBuilder, depthOrdering, occlusionCompleter),
             debugSink,
             progress,
             () => clock);
@@ -82,56 +85,70 @@ public sealed class SvgCreationOrchestratorTests
                 Assert.Equal(PipelineStageNames.ImageLoading, e.StageName);
                 Assert.Equal(PipelineStageStatus.Started, e.Status);
                 Assert.Equal(1, e.StageIndex);
-                Assert.Equal(4, e.TotalStages);
+                Assert.Equal(5, e.TotalStages);
             },
             e =>
             {
                 Assert.Equal(PipelineStageNames.ImageLoading, e.StageName);
                 Assert.Equal(PipelineStageStatus.Completed, e.Status);
                 Assert.Equal(1, e.StageIndex);
-                Assert.Equal(4, e.TotalStages);
+                Assert.Equal(5, e.TotalStages);
             },
             e =>
             {
                 Assert.Equal(PipelineStageNames.Quantization, e.StageName);
                 Assert.Equal(PipelineStageStatus.Started, e.Status);
                 Assert.Equal(2, e.StageIndex);
-                Assert.Equal(4, e.TotalStages);
+                Assert.Equal(5, e.TotalStages);
             },
             e =>
             {
                 Assert.Equal(PipelineStageNames.Quantization, e.StageName);
                 Assert.Equal(PipelineStageStatus.Completed, e.Status);
                 Assert.Equal(2, e.StageIndex);
-                Assert.Equal(4, e.TotalStages);
+                Assert.Equal(5, e.TotalStages);
             },
             e =>
             {
                 Assert.Equal(PipelineStageNames.ShapeLayerExtraction, e.StageName);
                 Assert.Equal(PipelineStageStatus.Started, e.Status);
                 Assert.Equal(3, e.StageIndex);
-                Assert.Equal(4, e.TotalStages);
+                Assert.Equal(5, e.TotalStages);
             },
             e =>
             {
                 Assert.Equal(PipelineStageNames.ShapeLayerExtraction, e.StageName);
                 Assert.Equal(PipelineStageStatus.Completed, e.Status);
                 Assert.Equal(3, e.StageIndex);
-                Assert.Equal(4, e.TotalStages);
+                Assert.Equal(5, e.TotalStages);
             },
             e =>
             {
                 Assert.Equal(PipelineStageNames.DepthOrdering, e.StageName);
                 Assert.Equal(PipelineStageStatus.Started, e.Status);
                 Assert.Equal(4, e.StageIndex);
-                Assert.Equal(4, e.TotalStages);
+                Assert.Equal(5, e.TotalStages);
             },
             e =>
             {
                 Assert.Equal(PipelineStageNames.DepthOrdering, e.StageName);
                 Assert.Equal(PipelineStageStatus.Completed, e.Status);
                 Assert.Equal(4, e.StageIndex);
-                Assert.Equal(4, e.TotalStages);
+                Assert.Equal(5, e.TotalStages);
+            },
+            e =>
+            {
+                Assert.Equal(PipelineStageNames.OcclusionCompletion, e.StageName);
+                Assert.Equal(PipelineStageStatus.Started, e.Status);
+                Assert.Equal(5, e.StageIndex);
+                Assert.Equal(5, e.TotalStages);
+            },
+            e =>
+            {
+                Assert.Equal(PipelineStageNames.OcclusionCompletion, e.StageName);
+                Assert.Equal(PipelineStageStatus.Completed, e.Status);
+                Assert.Equal(5, e.StageIndex);
+                Assert.Equal(5, e.TotalStages);
             });
 
         // 量子化ステージのスナップショットが 1 回だけ記録されていることを確認
@@ -147,6 +164,7 @@ public sealed class SvgCreationOrchestratorTests
         Assert.Same(quantization, result.Quantization);
         Assert.Same(depthOrder, result.DepthOrder);
         Assert.True(depthOrdering.WasInvoked);
+        Assert.True(occlusionCompleter.WasInvoked);
     }
 
     [Fact]
@@ -175,6 +193,7 @@ public sealed class SvgCreationOrchestratorTests
 
         var shapeLayerBuilder = new FakeShapeLayerBuilder(layers);
         var depthOrdering = new FakeDepthOrderingService(depthOrder);
+        var occlusionCompleter = new FakeOcclusionCompleter(layers);
 
         var orchestrator = new SvgCreationOrchestrator(
             new IPipelineStage[]
@@ -182,9 +201,10 @@ public sealed class SvgCreationOrchestratorTests
                 new ImageLoadingStage(),
                 new QuantizationStage(),
                 new ShapeLayerExtractionStage(),
-                new DepthOrderingStage()
+                new DepthOrderingStage(),
+                new OcclusionCompletionStage()
             },
-            new PipelineDependencies(imageReader, quantizer, shapeLayerBuilder, depthOrdering),
+            new PipelineDependencies(imageReader, quantizer, shapeLayerBuilder, depthOrdering, occlusionCompleter),
             debugSink,
             progress: null,
             clock: () => new DateTimeOffset(2025, 10, 21, 9, 30, 0, TimeSpan.Zero));
@@ -194,6 +214,7 @@ public sealed class SvgCreationOrchestratorTests
         Assert.Empty(debugSink.SnapshotCalls);
         Assert.False(debugSink.CompleteCalled);
         Assert.True(depthOrdering.WasInvoked);
+        Assert.True(occlusionCompleter.WasInvoked);
     }
 
     private static ShapeLayer CreateShapeLayer(string id)
@@ -281,6 +302,28 @@ public sealed class SvgCreationOrchestratorTests
         {
             WasInvoked = true;
             return _result;
+        }
+    }
+
+    private sealed class FakeOcclusionCompleter : IOcclusionCompleter
+    {
+        private readonly IReadOnlyList<ShapeLayer> _completedLayers;
+
+        public FakeOcclusionCompleter(IReadOnlyList<ShapeLayer> completedLayers)
+        {
+            _completedLayers = completedLayers;
+        }
+
+        public bool WasInvoked { get; private set; }
+
+        public Task<OcclusionCompletionResult> CompleteAsync(
+            IReadOnlyList<ShapeLayer> layers,
+            DepthOrder depthOrder,
+            OcclusionCompletionOptions options,
+            CancellationToken cancellationToken)
+        {
+            WasInvoked = true;
+            return Task.FromResult(new OcclusionCompletionResult(_completedLayers));
         }
     }
 

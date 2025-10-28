@@ -98,6 +98,11 @@ public sealed class SvgCreationOrchestrator
             throw new InvalidOperationException("The pipeline did not produce a depth order.");
         }
 
+        if (context.CompletedLayers.Count == 0)
+        {
+            throw new InvalidOperationException("The pipeline did not produce completed shape layers.");
+        }
+
         return new SvgCreationResult(context.Image, context.Quantization, context.DepthOrder);
     }
 

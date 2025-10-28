@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using SvgCreator.Core.DepthOrdering;
 using SvgCreator.Core.Diagnostics;
+using SvgCreator.Core.Occlusion;
 using SvgCreator.Core.Models;
 using SvgCreator.Core.ShapeLayers;
 
@@ -49,6 +50,11 @@ public sealed class PipelineContext
     /// </summary>
     public DepthOrder? DepthOrder { get; private set; }
 
+    /// <summary>
+    /// 補完後のシェイプレイヤーを取得します。
+    /// </summary>
+    public IReadOnlyList<ShapeLayer> CompletedLayers { get; private set; } = Array.Empty<ShapeLayer>();
+
     public void SetImage(ImageData image)
     {
         Image = image ?? throw new ArgumentNullException(nameof(image));
@@ -74,6 +80,11 @@ public sealed class PipelineContext
     {
         DepthOrder = depthOrder ?? throw new ArgumentNullException(nameof(depthOrder));
     }
+
+    public void SetCompletedLayers(IReadOnlyList<ShapeLayer> layers)
+    {
+        CompletedLayers = layers ?? throw new ArgumentNullException(nameof(layers));
+    }
 }
 
 /// <summary>
@@ -85,12 +96,14 @@ public sealed class PipelineDependencies
         IImageReader imageReader,
         IQuantizer quantizer,
         IShapeLayerBuilder shapeLayerBuilder,
-        IDepthOrderingService depthOrdering)
+        IDepthOrderingService depthOrdering,
+        IOcclusionCompleter occlusionCompleter)
     {
         ImageReader = imageReader ?? throw new ArgumentNullException(nameof(imageReader));
         Quantizer = quantizer ?? throw new ArgumentNullException(nameof(quantizer));
         ShapeLayerBuilder = shapeLayerBuilder ?? throw new ArgumentNullException(nameof(shapeLayerBuilder));
         DepthOrdering = depthOrdering ?? throw new ArgumentNullException(nameof(depthOrdering));
+        OcclusionCompleter = occlusionCompleter ?? throw new ArgumentNullException(nameof(occlusionCompleter));
     }
 
     /// <summary>
@@ -112,6 +125,11 @@ public sealed class PipelineDependencies
     /// 深度順序計算コンポーネントを取得します。
     /// </summary>
     public IDepthOrderingService DepthOrdering { get; }
+
+    /// <summary>
+    /// エラスティカ補完コンポーネントを取得します。
+    /// </summary>
+    public IOcclusionCompleter OcclusionCompleter { get; }
 }
 
 /// <summary>
