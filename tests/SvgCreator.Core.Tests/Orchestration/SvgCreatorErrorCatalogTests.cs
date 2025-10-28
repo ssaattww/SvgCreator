@@ -4,6 +4,7 @@ namespace SvgCreator.Core.Tests.Orchestration;
 
 public sealed class SvgCreatorErrorCatalogTests
 {
+    // 全エラーコードが記述子に登録されていることを検証
     [Fact]
     public void AllDescriptors_ShouldContainEveryErrorCode()
     {
@@ -16,6 +17,7 @@ public sealed class SvgCreatorErrorCatalogTests
         }
     }
 
+    // エラーコードごとに想定カテゴリへ分類されることを検証
     [Theory]
     [InlineData(SvgCreatorErrorCode.InputFileNotFound, SvgCreatorErrorCategory.Input)]
     [InlineData(SvgCreatorErrorCode.InputUnsupportedFormat, SvgCreatorErrorCategory.Input)]
@@ -37,6 +39,7 @@ public sealed class SvgCreatorErrorCatalogTests
         Assert.Equal(expectedCategory, descriptor.Category);
     }
 
+    // 各記述子がメッセージ生成に必要なサマリとアクションを持つことを検証
     [Theory]
     [InlineData(SvgCreatorErrorCode.InputFileNotFound)]
     [InlineData(SvgCreatorErrorCode.InputUnsupportedFormat)]

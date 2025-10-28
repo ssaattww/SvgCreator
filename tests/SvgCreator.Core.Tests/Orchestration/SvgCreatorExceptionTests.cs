@@ -4,6 +4,7 @@ namespace SvgCreator.Core.Tests.Orchestration;
 
 public sealed class SvgCreatorExceptionTests
 {
+    // エラーコードのみ指定した場合にサマリと推奨アクションがメッセージへ反映されることを検証
     [Fact]
     public void FromCode_ShouldPopulateSummaryAndRecommendationInMessage()
     {
@@ -16,6 +17,7 @@ public sealed class SvgCreatorExceptionTests
         Assert.Null(ex.InnerException);
     }
 
+    // 追加詳細がメッセージに追記されることを検証
     [Fact]
     public void FromCode_WithDetails_ShouldAppendDetails()
     {
@@ -26,6 +28,7 @@ public sealed class SvgCreatorExceptionTests
         Assert.Contains("Access denied", ex.Message);
     }
 
+    // 内部例外が保持されることを検証
     [Fact]
     public void FromCode_WithInnerException_ShouldSetInnerException()
     {

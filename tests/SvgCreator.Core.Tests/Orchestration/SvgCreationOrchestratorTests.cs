@@ -218,6 +218,7 @@ public sealed class SvgCreationOrchestratorTests
         Assert.True(occlusionCompleter.WasInvoked);
     }
 
+    // 入力読み込み失敗時にカタログ化された例外へ変換されることを確認する
     [Fact]
     public async Task ExecuteAsync_WhenImageReaderThrowsFileNotFound_ThrowsSvgCreatorException()
     {
@@ -248,6 +249,7 @@ public sealed class SvgCreationOrchestratorTests
         Assert.Contains("missing.png", exception.Message);
     }
 
+    // デバッグ出力処理の失敗がデバッグカテゴリの例外として表面化することを確認する
     [Fact]
     public async Task ExecuteAsync_WhenDebugSinkFails_ThrowsSvgCreatorException()
     {
