@@ -30,4 +30,8 @@
     <ProjectReference Include="..\..\src\SvgCreator.Core\SvgCreator.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="SixLabors.ImageSharp" Version="3.1.4" />
+  </ItemGroup>
+
 </Project>
