@@ -113,4 +113,9 @@ public sealed class SvgCreatorRunOptions
     /// CLI オプションのスナップショットを取得します。
     /// </summary>
     public IReadOnlyDictionary<string, string> CliOptionSnapshot { get; }
+
+    /// <summary>
+    /// 量子化結果を 2 値化した画像の出力ファイル名。<c>null</c> の場合は書き出しません。
+    /// </summary>
+    public string? BinarizedImageOutputName { get; init; }
 }

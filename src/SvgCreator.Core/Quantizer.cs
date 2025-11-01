@@ -376,7 +376,7 @@ public sealed class QuantizerSettings
     /// <summary>
     /// 許容される最小クラスタ数。
     /// </summary>
-    public int MinimumClusterCount { get; init; } = 4;
+    public int MinimumClusterCount { get; init; } = 2;
 
     /// <summary>
     /// 許容される最大クラスタ数。

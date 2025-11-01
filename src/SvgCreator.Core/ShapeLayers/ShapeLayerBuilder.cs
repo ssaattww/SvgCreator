@@ -129,6 +129,37 @@ public sealed class ShapeLayerBuilder : IShapeLayerBuilder
             }
         }
 
+        if (_options.MaxPrimaryLayerCount > 0 && shapeLayers.Count > _options.MaxPrimaryLayerCount)
+        {
+            var keepSet = shapeLayers
+                .OrderByDescending(layer => layer.Area)
+                .ThenBy(layer => layer.Id, StringComparer.Ordinal)
+                .Take(_options.MaxPrimaryLayerCount)
+                .Select(layer => layer.Id)
+                .ToHashSet(StringComparer.Ordinal);
+
+            var demotedLayers = shapeLayers
+                .Where(layer => !keepSet.Contains(layer.Id))
+                .OrderBy(layer => layer.Area)
+                .ThenBy(layer => layer.Id, StringComparer.Ordinal)
+                .ToList();
+
+            shapeLayers.RemoveAll(layer => !keepSet.Contains(layer.Id));
+
+            foreach (var demoted in demotedLayers)
+            {
+                var noiseLayer = new NoisyLayer(
+                    id: $"noise-{noiseId:0000}",
+                    color: demoted.Color,
+                    mask: demoted.Mask,
+                    boundary: demoted.Boundary,
+                    area: demoted.Area);
+
+                noiseId++;
+                noisyLayers.Add(noiseLayer);
+            }
+        }
+
         return Task.FromResult(new ShapeLayerExtractionResult(shapeLayers.ToArray(), noisyLayers.ToArray()));
 
         void EnqueueIfMatches(int nx, int ny, int targetLabel)

@@ -51,7 +51,7 @@ public sealed class OcclusionCompletionOptions
     /// <summary>
     /// 既定の曲率正則化係数。
     /// </summary>
-    public const float DefaultCurvatureWeight = 0.1f;
+    public const float DefaultCurvatureWeight = 0.06f;
 
     /// <summary>
     /// 既定の弧長ペナルティ係数。
@@ -61,12 +61,12 @@ public sealed class OcclusionCompletionOptions
     /// <summary>
     /// 既定の近傍半径。
     /// </summary>
-    public const float DefaultNeighborhoodRadius = 0.1f;
+    public const float DefaultNeighborhoodRadius = 0.2f;
 
     /// <summary>
     /// 既定の閉鎖誤差許容値。
     /// </summary>
-    public const float DefaultClosingTolerance = 1e-3f;
+    public const float DefaultClosingTolerance = 2e-3f;
 
     /// <summary>
     /// Euler エラスティカの最大反復回数。

@@ -34,6 +34,8 @@ public sealed class QuantizationStage : IPipelineStage
         var image = context.Image ?? throw new InvalidOperationException("Quantization requires an input image.");
         var result = await dependencies.Quantizer.QuantizeAsync(image, context.Options, cancellationToken).ConfigureAwait(false);
         context.SetQuantization(result);
+
+        SvgCreator.Core.BinarizedImageWriter.Write(result, context.Options);
     }
 
     /// <inheritdoc />

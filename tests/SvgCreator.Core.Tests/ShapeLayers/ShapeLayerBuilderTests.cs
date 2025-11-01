@@ -150,6 +150,28 @@ public sealed class ShapeLayerBuilderTests
         Assert.Equal("noise-0001", noise.Id);
     }
 
+    // レイヤー数が上限を超える場合、小面積レイヤーがノイズへ移行されることを確認
+    [Fact]
+    public async Task BuildLayersAsync_WhenLayerCountExceedsCap_DemotesSmallestLayers()
+    {
+        var palette = ImmutableArray.Create(new RgbColor(10, 10, 10), new RgbColor(240, 240, 240));
+        var labelsBuilder = ImmutableArray.CreateBuilder<int>(12);
+
+        for (var i = 0; i < 12; i++)
+        {
+            labelsBuilder.Add(i % 2);
+        }
+
+        var quantization = CreateQuantization(width: 12, height: 1, palette, labelsBuilder.MoveToImmutable());
+        var builder = new ShapeLayerBuilder();
+
+        var result = await builder.BuildLayersAsync(quantization, CancellationToken.None);
+
+        Assert.Equal(10, result.ShapeLayers.Count);
+        Assert.Equal(2, result.NoisyLayers.Count);
+        Assert.All(result.NoisyLayers, noise => Assert.Equal(1, noise.Area));
+    }
+
     private static QuantizationResult CreateQuantization(int width, int height, ImmutableArray<RgbColor> palette, ImmutableArray<int> labels)
     {
         var pixels = new byte[width * height * 3];

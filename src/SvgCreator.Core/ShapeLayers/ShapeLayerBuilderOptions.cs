@@ -23,6 +23,11 @@ public sealed class ShapeLayerBuilderOptions
     public float NoisyComponentMinimumPerimeter { get; init; }
 
     /// <summary>
+    /// 主要シェイプレイヤーとして維持する最大数。0 または負値の場合、上限は適用されません。
+    /// </summary>
+    public int MaxPrimaryLayerCount { get; init; } = 10;
+
+    /// <summary>
     /// オプション値が妥当であることを検証します。
     /// </summary>
     /// <exception cref="ArgumentOutOfRangeException">不正な値が指定されています。</exception>
@@ -36,6 +41,11 @@ public sealed class ShapeLayerBuilderOptions
         if (float.IsNaN(NoisyComponentMinimumPerimeter) || NoisyComponentMinimumPerimeter < 0)
         {
             throw new ArgumentOutOfRangeException(nameof(NoisyComponentMinimumPerimeter), NoisyComponentMinimumPerimeter, "Perimeter threshold must be non-negative.");
+        }
+
+        if (MaxPrimaryLayerCount < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(MaxPrimaryLayerCount), MaxPrimaryLayerCount, "Maximum layer count must be non-negative.");
         }
     }
 }

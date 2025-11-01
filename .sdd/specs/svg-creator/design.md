@@ -34,11 +34,11 @@
 - 検討した選択肢（不採用）: SkiaSharp（機能不足箇所は自前実装が増える）。
 
 ### コンポーネント3: Quantizer（減色）
-- 責務: K-means等で色量子化して領域の一貫性を高める。
-- 入力: `ImageData`, パラメータ `K`。
-- 出力: 量子化後画像、色パレット、初期レイヤ（画素ラベル）。
-- 依存関係: ML.NET（KMeans）。
-- 検討した選択肢（不採用）: 自前実装, Accord.NET。
+- 責務: 論文 Appendix A に記載されたマルチスケール K-means を実装し、色クラスタとその連結成分（shape layer 指示関数）を得る。
+- 入力: `ImageData`, パラメータ `K`（品質プリセットに応じて段階的に増加）。
+- 出力: 量子化後画像、色パレット、連結成分ごとの 0/1 マスク（shape layer）。
+- 依存関係: ML.NET（KMeans）＋必要に応じて自前初期化ロジック。
+- 検討した選択肢（不採用）: 単一スケールK-means（初期化が不安定）、Otsu法など単純二値化。
 
 ### コンポーネント4: Segmenter（任意・多相）
 - 責務: 実画像向けに量子化後の粗いグルーピング（多相セグメンテーション）。
@@ -48,6 +48,8 @@
 
 ### コンポーネント5: ShapeLayerBuilder
 - 責務: 連結成分抽出→領域（境界ポリライン/輪郭）を生成、微小領域除去、ノイズ層分離。
+- 規模制御: 主要なシェイプレイヤーが 10 枚を超えた場合は、面積の小さい順にノイズレイヤーへ段階的に移行して過剰分割を抑制する。
+- オプション: `NoisyComponentMinimumPixelCount`, `NoisyComponentMinimumPerimeter`, `MaxPrimaryLayerCount`（既定 10）。
 - 入力: 量子化/セグメンテーション結果、`noisyThreshold`。
 - 出力: `ShapeLayer[]`, `NoisyLayer[]`。
 - 依存関係: OpenCvSharp。
@@ -141,11 +143,11 @@
 
 ## 処理フロー
 1. 画像読み込み（ImageReader）→ `ImageData` を得る
-2. 減色（Quantizer, K既定=20）→ 量子化画像・色パレット・初期レイヤ
+2. 減色（Quantizer, K既定=20）→ 量子化画像・色パレット・shape layer 指示関数（論文付録Aのアルゴリズムを踏襲）
 3. 任意セグメンテーション（Segmenter, 実画像向け）
 4. 領域抽出（ShapeLayerBuilder）→ `ShapeLayer[]`（微小領域除去）
 5. 隣接グラフ構築と深度整序（DepthOrdering, `delta` 既定=0.05, SCC縮約→トポソート）
-6. 遮蔽補完（OcclusionCompleter, `eulerMaxIter` 既定=100, `eps`=5, `a`=0.1, `b`=1.0, `r`=0.1）
+6. 遮蔽補完（OcclusionCompleter, `eulerMaxIter` 既定=100, `eps`=5, `a`=0.06, `b`=1.0, `r`=0.2）
 7. Bézier近似・単純化（BezierFitter, `bEps`=1.0, `bRadius`=0.8 目安）
 8. SVG出力（SvgEmitter, viewBox設定, `<g>`に`data-depth`付与）
 9. 部分出力/サイズ制約（ExportFilter/SizeLimiter, レイヤ≤15KBを満たさない場合は再単純化）
