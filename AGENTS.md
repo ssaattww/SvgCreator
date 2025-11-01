@@ -14,6 +14,32 @@
 ## テストと検証
 - コード変更後は必ず関連テスト（`.NET` プロジェクトでは `dotnet test`）を実行し、成功を確認する。
 - テストを実行した場合、その事実とコマンド名を報告に含める。
+- テストコードには以下のようにどのようなテストなのかをコメントに必ず記載する
+
+```cs
+// 生成された SVG のルート要素が仕様通りの寸法・メタ属性を持つことを確認する。
+[Fact]
+public void EmitDocument_RootContainsExpectedAttributes()
+{
+    var image = CreateImage(128, 256);
+    var geometry = CreateRectangleGeometry("layer-001", new RgbColor(10, 20, 30));
+    var depthOrder = CreateDepthOrder(("layer-001", 0));
+
+    var emitter = new SvgEmitter();
+    var svg = emitter.EmitDocument(image, new[] { geometry }, depthOrder);
+
+    var document = XDocument.Parse(svg);
+    var root = document.Root ?? throw new InvalidOperationException("SVG root element is missing.");
+
+    Assert.Equal("svg", root.Name.LocalName);
+    Assert.Equal(Svg.NamespaceName, root.Name.NamespaceName);
+    Assert.Equal("128", root.Attribute("width")?.Value);
+    Assert.Equal("256", root.Attribute("height")?.Value);
+    Assert.Equal("0 0 128 256", root.Attribute("viewBox")?.Value);
+    Assert.Equal("1.1", root.Attribute("version")?.Value);
+    Assert.Equal("SvgCreator", root.Attribute("data-generator")?.Value);
+}
+```
 
 ## タスク進行
 - `.sdd/specs/.../tasks.md` に定義されたタスクは順番に実施し、完了した項目はチェックマークを更新する。
