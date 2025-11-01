@@ -13,6 +13,7 @@ namespace SvgCreator.Core.Tests.Quantization;
 
 public sealed class MultiScalePixelSamplerTests
 {
+    // ブロック平均サンプルが想定重みと RGB 値になることを確認する。
     [Fact]
     public void CreateSamples_ComputesWeightedAveragesPerBlock()
     {
@@ -48,6 +49,7 @@ public sealed class MultiScalePixelSamplerTests
         Assert.All(fine, sample => Assert.Equal(1, sample.Weight));
     }
 
+    // マルチスケール初期重心で中間色クラスタが保持されることを確認する。
     [Fact]
     public async Task QuantizeAsync_WithMultiScaleSeedsRetainsIntermediateCentroid()
     {
