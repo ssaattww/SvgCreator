@@ -30,6 +30,9 @@
 - 責務: 入力画像の読込、色空間変換、任意のノイズ除去/減色前のスムージング。
 - 入力: 画像ファイル（PNG/JPEG）。
 - 出力: `ImageData`（幅/高さ/画素配列）。
+- 前処理方針:
+  - 研究結果に基づき、JPEG 圧縮ノイズが量子化段階で過分割を引き起こすため、ガウシアンブラーによる平滑化をオプション提供（デフォルト: 無効、`--preprocess-smoothing` 指定で有効）。
+  - 平滑化カーネルサイズは奇数のみ許可し、設計別紙の `ImageReaderSettings` に初期値（例: size=3, σ=0.0）を保持する。
 - 依存関係: OpenCvSharp。
 - 検討した選択肢（不採用）: SkiaSharp（機能不足箇所は自前実装が増える）。
 
@@ -37,6 +40,10 @@
 - 責務: 論文 Appendix A に記載されたマルチスケール K-means を実装し、色クラスタとその連結成分（shape layer 指示関数）を得る。
 - 入力: `ImageData`, パラメータ `K`（品質プリセットに応じて段階的に増加）。
 - 出力: 量子化後画像、色パレット、連結成分ごとの 0/1 マスク（shape layer）。
+- 実装留意点:
+  - 研究メモ（2025-11-01）より、圧縮ノイズの多い入力ではユニークカラー数が `K` を大幅に超える可能性があるため、「ユニークカラー数 <= K」での早期終了に加えて、小規模クラスタの再結合を後段に委ねる前提で常に K-means を完走させる。
+  - 初期化は k-means++、繰り返し上限は `QuantizerSettings.MaxIterations`（既定 50）とする。
+  - 後段のノイズ吸収を見越し、クラスタ数の上限は `QuantizerSettings.MaximumClusterCount`（既定 64）に制限、CLI `--K` 指定で上書き可能。
 - 依存関係: ML.NET（KMeans）＋必要に応じて自前初期化ロジック。
 - 検討した選択肢（不採用）: 単一スケールK-means（初期化が不安定）、Otsu法など単純二値化。
 
@@ -48,10 +55,13 @@
 
 ### コンポーネント5: ShapeLayerBuilder
 - 責務: 連結成分抽出→領域（境界ポリライン/輪郭）を生成、微小領域除去、ノイズ層分離。
-- 規模制御: 主要なシェイプレイヤーが 10 枚を超えた場合は、面積の小さい順にノイズレイヤーへ段階的に移行して過剰分割を抑制する。
+- 規模制御:
+  - 主要なシェイプレイヤーが 10 枚を超えた場合は、面積の小さい順にノイズレイヤーへ段階的に移行して過剰分割を抑制する。
+  - 研究論文の Definition 10 を踏まえ、`NoisyComponentMinimumPixelCount` と `NoisyComponentMinimumPerimeter` を併用し「面積 <= ε かつ異色レイヤーに隣接する成分」をノイズ集合 `S_noise` に吸収する。`S_noise` は全シェイプレイヤーの覆域 `O_i` に統合し、深度順序や SVG 出力対象には含めない。
 - オプション: `NoisyComponentMinimumPixelCount`, `NoisyComponentMinimumPerimeter`, `MaxPrimaryLayerCount`（既定 10）。
 - 入力: 量子化/セグメンテーション結果、`noisyThreshold`。
 - 出力: `ShapeLayer[]`, `NoisyLayer[]`。
+- 補助ステップ: grouping quantization を有効化した場合は、粗い多相セグメンテーション結果をマスクとして受け取り、主要シェイプレイヤーの再統合候補として扱う。
 - 依存関係: OpenCvSharp。
 - 検討した選択肢（不採用）: SkiaSharp（形態演算/輪郭で不足）。
 
