@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using SvgCreator.Core.Models;
 using SvgCreator.Core.Orchestration;
+using SvgCreator.Core.Quantization;
 
 namespace SvgCreator.Core;
 
@@ -65,25 +66,60 @@ public sealed class Quantizer : IQuantizer
                 "Quantization bypassed K-means because unique color count {Count} <= target clusters {Clusters}.",
                 uniqueColors.Count,
                 k);
-            return Task.FromResult(CreateTrivialResult(image, uniqueColors, pixels));
+            return Task.FromResult(CreateTrivialResult(image, uniqueColors));
         }
 
-        var vectorPixels = new Vector3[pixelCount];
-        for (var i = 0; i < pixelCount; i++)
+        var blockSizes = EnsureBlockSizes(_settings.MultiScaleBlockSizes);
+        var samplesPerLevel = MultiScalePixelSampler.CreateSamples(image, blockSizes);
+
+        var usableLevels = new List<QuantizationSample[]>(samplesPerLevel.Length);
+        foreach (var level in samplesPerLevel)
         {
-            var offset = i * 3;
-            vectorPixels[i] = new Vector3(pixels[offset], pixels[offset + 1], pixels[offset + 2]);
+            if (level.Length >= k)
+            {
+                usableLevels.Add(level);
+            }
+        }
+
+        var finalLevel = samplesPerLevel[^1];
+        if (!usableLevels.Contains(finalLevel))
+        {
+            usableLevels.Add(finalLevel);
+        }
+        else if (!ReferenceEquals(usableLevels[^1], finalLevel))
+        {
+            usableLevels.Remove(finalLevel);
+            usableLevels.Add(finalLevel);
+        }
+
+        if (usableLevels.Count == 0)
+        {
+            usableLevels.Add(finalLevel);
         }
 
         var rng = _settings.RandomSeed.HasValue
             ? new Random(_settings.RandomSeed.Value)
             : new Random();
 
-        var centroids = InitializeCentroids(vectorPixels, k, rng, cancellationToken);
-        var assignments = new int[pixelCount];
-        Array.Fill(assignments, -1);
+        Vector3[]? centroids = null;
+        int[]? assignments = null;
+        double[]? counts = null;
+        QuantizationSample[]? finalSamples = null;
 
-        var counts = IterateKMeans(vectorPixels, centroids, assignments, rng, cancellationToken);
+        foreach (var level in usableLevels)
+        {
+            var result = RunWeightedKMeans(level, k, centroids, rng, cancellationToken);
+            centroids = result.Centroids;
+            assignments = result.Assignments;
+            counts = result.Counts;
+            finalSamples = level;
+        }
+
+        if (centroids is null || assignments is null || counts is null || finalSamples is null)
+        {
+            _logger.LogWarning("Quantization failed to produce centroids. Falling back to unique colors.");
+            return Task.FromResult(CreateTrivialResult(image, uniqueColors));
+        }
 
         var paletteBuilder = ImmutableArray.CreateBuilder<RgbColor>(k);
         var clusterMap = new int[centroids.Length];
@@ -91,7 +127,7 @@ public sealed class Quantizer : IQuantizer
 
         for (var i = 0; i < centroids.Length; i++)
         {
-            if (counts[i] == 0)
+            if (counts[i] <= 0 || double.IsNaN(counts[i]))
             {
                 continue;
             }
@@ -104,19 +140,17 @@ public sealed class Quantizer : IQuantizer
 
         if (paletteBuilder.Count == 0)
         {
-            // すべて再割当てできなかった場合は安全策としてユニークカラーを返す。
             _logger.LogWarning("All quantization clusters were empty. Falling back to unique colors.");
-            return Task.FromResult(CreateTrivialResult(image, uniqueColors, pixels));
+            return Task.FromResult(CreateTrivialResult(image, uniqueColors));
         }
 
-        var finalLabels = new int[pixelCount];
-        for (var i = 0; i < pixelCount; i++)
+        var finalLabels = new int[finalSamples.Length];
+        for (var i = 0; i < finalSamples.Length; i++)
         {
             var mapped = clusterMap[assignments[i]];
             if (mapped < 0)
             {
-                // 不使用クラスタに割り当たった場合は最も近い既存パレットへ丸める。
-                mapped = FindNearestPaletteIndex(vectorPixels[i], paletteBuilder);
+                mapped = FindNearestPaletteIndex(finalSamples[i].Color, paletteBuilder);
             }
 
             finalLabels[i] = mapped;
@@ -130,8 +164,10 @@ public sealed class Quantizer : IQuantizer
         return Task.FromResult(result);
     }
 
-    private static QuantizationResult CreateTrivialResult(ImageData image, HashSet<RgbColor> uniqueColors, ReadOnlySpan<byte> pixels)
+    private static QuantizationResult CreateTrivialResult(ImageData image, HashSet<RgbColor> uniqueColors)
     {
+        var pixels = image.Pixels.Span;
+
         var paletteBuilder = ImmutableArray.CreateBuilder<RgbColor>(uniqueColors.Count);
         var map = new Dictionary<RgbColor, int>(uniqueColors.Count);
         var labels = new int[image.Width * image.Height];
@@ -156,47 +192,98 @@ public sealed class Quantizer : IQuantizer
             ImmutableArray.CreateRange(labels));
     }
 
-    private int[] IterateKMeans(
-        IReadOnlyList<Vector3> pixels,
-        Vector3[] centroids,
-        int[] assignments,
+    private ImmutableArray<int> EnsureBlockSizes(ImmutableArray<int> configured)
+    {
+        var seen = new HashSet<int>();
+        var values = new List<int>();
+
+        void TryAdd(int size)
+        {
+            if (size <= 0)
+            {
+                return;
+            }
+
+            if (seen.Add(size))
+            {
+                values.Add(size);
+            }
+        }
+
+        if (!configured.IsDefaultOrEmpty)
+        {
+            foreach (var size in configured)
+            {
+                TryAdd(size);
+            }
+        }
+
+        if (values.Count == 0)
+        {
+            TryAdd(4);
+            TryAdd(2);
+            TryAdd(1);
+        }
+        else if (!seen.Contains(1))
+        {
+            TryAdd(1);
+        }
+
+        values.Sort((a, b) => b.CompareTo(a));
+
+        return ImmutableArray.CreateRange(values);
+    }
+
+    private (Vector3[] Centroids, int[] Assignments, double[] Counts) RunWeightedKMeans(
+        QuantizationSample[] samples,
+        int clusterCount,
+        Vector3[]? previousCentroids,
         Random rng,
         CancellationToken cancellationToken)
     {
-        var centroidCount = centroids.Length;
-        var pixelCount = pixels.Count;
+        if (samples.Length == 0)
+        {
+            throw new InvalidOperationException("Cannot perform K-means without samples.");
+        }
 
-        var sums = new Vector3[centroidCount];
-        var counts = new int[centroidCount];
+        var centroids = PrepareInitialCentroids(samples, clusterCount, previousCentroids, rng, cancellationToken);
+        var assignments = new int[samples.Length];
+        Array.Fill(assignments, -1);
+
+        var sums = new Vector3[clusterCount];
+        var counts = new double[clusterCount];
 
         for (var iteration = 0; iteration < _settings.MaxIterations; iteration++)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var changed = AssignPixels(pixels, centroids, assignments);
+            var changed = AssignSamples(samples, centroids, assignments);
 
             Array.Clear(sums);
             Array.Clear(counts);
 
-            for (var i = 0; i < pixelCount; i++)
+            for (var i = 0; i < samples.Length; i++)
             {
+                var weight = Math.Max(1, samples[i].Weight);
                 var assignment = assignments[i];
-                sums[assignment] += pixels[i];
-                counts[assignment]++;
+                sums[assignment] += samples[i].Color * weight;
+                counts[assignment] += weight;
             }
 
             var centroidsChanged = false;
 
-            for (var c = 0; c < centroidCount; c++)
+            for (var c = 0; c < clusterCount; c++)
             {
-                if (counts[c] == 0)
+                if (counts[c] <= 0)
                 {
-                    centroids[c] = pixels[rng.Next(pixelCount)];
+                    var randomIndex = rng.Next(samples.Length);
+                    centroids[c] = samples[randomIndex].Color;
+                    counts[c] = 1;
                     centroidsChanged = true;
                     continue;
                 }
 
-                var newCentroid = sums[c] / counts[c];
+                var newCentroid = sums[c] / (float)counts[c];
                 if (Vector3.DistanceSquared(newCentroid, centroids[c]) > _settings.ConvergenceThreshold)
                 {
                     centroidsChanged = true;
@@ -211,30 +298,160 @@ public sealed class Quantizer : IQuantizer
             }
         }
 
-        Array.Clear(counts);
-        for (var i = 0; i < pixelCount; i++)
+        for (var c = 0; c < clusterCount; c++)
         {
-            counts[assignments[i]]++;
-        }
-
-        for (var c = 0; c < centroidCount; c++)
-        {
-            if (counts[c] == 0)
+            if (counts[c] <= 0)
             {
-                var index = rng.Next(pixelCount);
-                centroids[c] = pixels[index];
-                assignments[index] = c;
+                var randomIndex = rng.Next(samples.Length);
+                centroids[c] = samples[randomIndex].Color;
                 counts[c] = 1;
             }
         }
 
-        return counts;
+        return (centroids, assignments, counts);
     }
 
-    private static byte ToByte(float value)
+    private static Vector3[] PrepareInitialCentroids(
+        QuantizationSample[] samples,
+        int clusterCount,
+        Vector3[]? previousCentroids,
+        Random rng,
+        CancellationToken cancellationToken)
     {
-        var clamped = Math.Clamp((int)MathF.Round(value, MidpointRounding.AwayFromZero), 0, 255);
-        return (byte)clamped;
+        if (samples.Length == 0)
+        {
+            throw new InvalidOperationException("Cannot initialize centroids without samples.");
+        }
+
+        if (previousCentroids is { Length: > 0 })
+        {
+            var centroids = new Vector3[clusterCount];
+            var copyLength = Math.Min(clusterCount, previousCentroids.Length);
+            Array.Copy(previousCentroids, centroids, copyLength);
+            for (var i = copyLength; i < clusterCount; i++)
+            {
+                var index = rng.Next(samples.Length);
+                centroids[i] = samples[index].Color;
+            }
+
+            return centroids;
+        }
+
+        var result = new Vector3[clusterCount];
+        var sampleCount = samples.Length;
+        var distances = new double[sampleCount];
+
+        var firstIndex = SelectWeightedSampleIndex(samples, rng);
+        result[0] = samples[firstIndex].Color;
+
+        for (var centroidIndex = 1; centroidIndex < clusterCount; centroidIndex++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            double totalDistance = 0;
+            for (var i = 0; i < sampleCount; i++)
+            {
+                var distance = DistanceSquaredToClosestCentroid(samples[i].Color, result, centroidIndex);
+                distances[i] = distance;
+                totalDistance += distance * Math.Max(1, samples[i].Weight);
+            }
+
+            if (totalDistance <= 0)
+            {
+                var fallback = SelectWeightedSampleIndex(samples, rng);
+                result[centroidIndex] = samples[fallback].Color;
+                continue;
+            }
+
+            var threshold = rng.NextDouble() * totalDistance;
+            double cumulative = 0;
+
+            for (var i = 0; i < sampleCount; i++)
+            {
+                cumulative += distances[i] * Math.Max(1, samples[i].Weight);
+                if (cumulative >= threshold)
+                {
+                    result[centroidIndex] = samples[i].Color;
+                    break;
+                }
+            }
+        }
+
+        return result;
+    }
+
+    private static int SelectWeightedSampleIndex(QuantizationSample[] samples, Random rng)
+    {
+        double totalWeight = 0;
+        for (var i = 0; i < samples.Length; i++)
+        {
+            totalWeight += Math.Max(1, samples[i].Weight);
+        }
+
+        var threshold = rng.NextDouble() * totalWeight;
+        double cumulative = 0;
+
+        for (var i = 0; i < samples.Length; i++)
+        {
+            cumulative += Math.Max(1, samples[i].Weight);
+            if (cumulative >= threshold)
+            {
+                return i;
+            }
+        }
+
+        return samples.Length - 1;
+    }
+
+    private static bool AssignSamples(QuantizationSample[] samples, Vector3[] centroids, int[] assignments)
+    {
+        var changed = false;
+
+        for (var i = 0; i < samples.Length; i++)
+        {
+            var nearest = FindNearestCentroid(samples[i].Color, centroids);
+            if (assignments[i] != nearest)
+            {
+                assignments[i] = nearest;
+                changed = true;
+            }
+        }
+
+        return changed;
+    }
+
+    private static double DistanceSquaredToClosestCentroid(Vector3 sample, Vector3[] centroids, int length)
+    {
+        var best = double.PositiveInfinity;
+
+        for (var i = 0; i < length; i++)
+        {
+            var distance = Vector3.DistanceSquared(sample, centroids[i]);
+            if (distance < best)
+            {
+                best = distance;
+            }
+        }
+
+        return best;
+    }
+
+    private static int FindNearestCentroid(Vector3 sample, Vector3[] centroids)
+    {
+        var bestIndex = 0;
+        var bestDistance = float.PositiveInfinity;
+
+        for (var i = 0; i < centroids.Length; i++)
+        {
+            var distance = Vector3.DistanceSquared(sample, centroids[i]);
+            if (distance < bestDistance)
+            {
+                bestDistance = distance;
+                bestIndex = i;
+            }
+        }
+
+        return bestIndex;
     }
 
     private static int FindNearestPaletteIndex(Vector3 color, ImmutableArray<RgbColor>.Builder paletteBuilder)
@@ -257,101 +474,10 @@ public sealed class Quantizer : IQuantizer
         return bestIndex;
     }
 
-    private static Vector3[] InitializeCentroids(
-        IReadOnlyList<Vector3> pixels,
-        int k,
-        Random rng,
-        CancellationToken cancellationToken)
+    private static byte ToByte(float value)
     {
-        var centroids = new Vector3[k];
-        var pixelCount = pixels.Count;
-
-        centroids[0] = pixels[rng.Next(pixelCount)];
-        var distances = new float[pixelCount];
-
-        for (var centroidIndex = 1; centroidIndex < k; centroidIndex++)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            var totalDistance = 0.0;
-            for (var i = 0; i < pixelCount; i++)
-            {
-                var distance = DistanceSquaredToClosestCentroid(pixels[i], centroids, centroidIndex);
-                distances[i] = distance;
-                totalDistance += distance;
-            }
-
-            if (totalDistance <= 0)
-            {
-                centroids[centroidIndex] = pixels[rng.Next(pixelCount)];
-                continue;
-            }
-
-            var threshold = rng.NextDouble() * totalDistance;
-            var cumulative = 0.0;
-            for (var i = 0; i < pixelCount; i++)
-            {
-                cumulative += distances[i];
-                if (cumulative >= threshold)
-                {
-                    centroids[centroidIndex] = pixels[i];
-                    break;
-                }
-            }
-        }
-
-        return centroids;
-    }
-
-    private static float DistanceSquaredToClosestCentroid(Vector3 pixel, IReadOnlyList<Vector3> centroids, int length)
-    {
-        var best = float.PositiveInfinity;
-        for (var i = 0; i < length; i++)
-        {
-            var distance = Vector3.DistanceSquared(pixel, centroids[i]);
-            if (distance < best)
-            {
-                best = distance;
-            }
-        }
-
-        return best;
-    }
-
-    private static bool AssignPixels(IReadOnlyList<Vector3> pixels, Vector3[] centroids, int[] assignments)
-    {
-        var changed = false;
-        var pixelCount = pixels.Count;
-
-        for (var i = 0; i < pixelCount; i++)
-        {
-            var nearest = FindNearestCentroid(pixels[i], centroids);
-            if (assignments[i] != nearest)
-            {
-                assignments[i] = nearest;
-                changed = true;
-            }
-        }
-
-        return changed;
-    }
-
-    private static int FindNearestCentroid(Vector3 pixel, Vector3[] centroids)
-    {
-        var bestIndex = 0;
-        var bestDistance = float.PositiveInfinity;
-
-        for (var i = 0; i < centroids.Length; i++)
-        {
-            var distance = Vector3.DistanceSquared(pixel, centroids[i]);
-            if (distance < bestDistance)
-            {
-                bestDistance = distance;
-                bestIndex = i;
-            }
-        }
-
-        return bestIndex;
+        var clamped = Math.Clamp((int)MathF.Round(value, MidpointRounding.AwayFromZero), 0, 255);
+        return (byte)clamped;
     }
 }
 
@@ -370,7 +496,8 @@ public sealed class QuantizerSettings
         DefaultClusterCount = 20,
         MaxIterations = 50,
         ConvergenceThreshold = 1e-3f,
-        RandomSeed = 17
+        RandomSeed = 17,
+        MultiScaleBlockSizes = ImmutableArray.Create(4, 2, 1)
     };
 
     /// <summary>
@@ -402,4 +529,9 @@ public sealed class QuantizerSettings
     /// 乱数シード。<c>null</c> の場合は非決定的なシードを利用します。
     /// </summary>
     public int? RandomSeed { get; init; } = 17;
+
+    /// <summary>
+    /// マルチスケール量子化で使用するブロックサイズの系列。
+    /// </summary>
+    public ImmutableArray<int> MultiScaleBlockSizes { get; init; } = ImmutableArray.Create(4, 2, 1);
 }
